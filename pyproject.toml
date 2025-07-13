@@ -1,0 +1,20 @@
+[project]
+name = "baba-is-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "grandalf>=0.8",
+    "langchain-mcp-adapters>=0.1.9",
+    "langchain[openai]>=0.3.26",
+    "langgraph>=0.5.2",
+]
+
+[project.optional-dependencies]
+baba-mcp = [
+    "configparser>=7.2.0",
+    "fastmcp>=2.10.5",
+    "mcp>=1.11.0",
+    "pyautogui>=0.9.54",
+]
