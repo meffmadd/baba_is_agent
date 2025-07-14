@@ -18,3 +18,8 @@ baba-mcp = [
     "mcp>=1.11.0",
     "pyautogui>=0.9.54",
 ]
+
+[dependency-groups]
+dev = [
+    "langgraph-cli[inmem]>=0.3.4",
+]
