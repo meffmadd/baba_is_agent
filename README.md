@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="./baba_is_agent.png" width="50%" alt="Baba Is Agent Logo" />
+  <img src="./docs/baba_is_agent.png" width="50%" alt="Baba Is Agent Logo" />
 </div>
 
 # Baba Is Agent
 
-Langgraph-based AI agent that (so far unsuccessfully) plays the puzzle game *[Baba is You](https://store.steampowered.com/app/736260/Baba_Is_You/)*.
+Langgraph-based AI agent that plays the puzzle game *[Baba is You](https://store.steampowered.com/app/736260/Baba_Is_You/)*.
 
 Inspired by the [baba_is_eval](https://github.com/lennart-finke/baba_is_eval) repository.
 
@@ -37,5 +37,5 @@ Requires macOS with the Steam version of *Baba is You*.
    ```bash
    python main.py
    ```
-   
+
    This will launch the MCP server and start the agent loop to solve the current level.
