@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/baba_is_agent.png" width="50%" alt="Baba Is Agent Logo" />
+  <img src="./docs/baba_is_agent.png" width="60%" alt="Baba Is Agent Logo" />
 </div>
 
 # Baba Is Agent
@@ -31,7 +31,7 @@ Requires macOS with the Steam version of *Baba is You*.
    BASE_URL=https://api.openai.com/v1
    ```
 
-4. Start the game and enter a level
+4. Start the game and enter a level.
 
 5. Run the agent:
    ```bash
