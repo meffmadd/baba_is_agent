@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 from textwrap import dedent
 
+from utils import MoveOptions, Reasoning, AugmentedMoveOptions, get_rules, augment_game_moves
+
 load_dotenv()
 
 # Start Baba Is You sub-process to read stdout
@@ -53,22 +55,12 @@ def level_won() -> bool:
     level_won = config["status"]["level_won"]
     return level_won == "true"
 
-class GameMoves(BaseModel):
-    moves: List[Literal["up", "down", "left", "right"]]
-    goal: str
-
-class MoveOptions(BaseModel):
-    options: List[GameMoves]
-
-class Reasoning(BaseModel):
-    reasoning: str
-    suggestion: GameMoves
-
 class State(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     game_state: str
+    game_insights: str
     self_evaluation: str
-    options: MoveOptions
+    options: AugmentedMoveOptions
     reasoning: Reasoning
     mistake_detection: str
 
@@ -103,13 +95,16 @@ def init(state: State) -> State:
 def game_state(state: State) -> State:
     """Retrieve the game state"""
     game_state_tool = tools_by_name["get_game_state"]
-    result = asyncio.run(game_state_tool.ainvoke(input={}))
-    state["game_state"] = result
+    game_state = asyncio.run(game_state_tool.ainvoke(input={}))
+    state["game_state"] = game_state
+    state["game_insights"] = dedent(f'''
+        The current active rules are: {[str(r).upper() for r in get_rules(state["game_state"])]}
+        ''').strip()
     return state
 
 def evaluate(state: State) -> State:
     """Evaluate current understanding"""
-    message = HumanMessage(content=f'Evaluate the current game state as best as possible in a short paragraph! Current game state:\n\n {state["game_state"]}')
+    message = HumanMessage(content=f'Evaluate the current game state as best as possible in a short paragraph!\nCurrent game state:\n\n{state["game_state"]}\n\n{state["game_insights"]}')
     response = llm.invoke(state['messages'] + [message])
     response.pretty_print()
     state["self_evaluation"] = str(response.content)
@@ -129,10 +124,16 @@ def generate_options(state: State) -> State:
 
         The evaluation of the current game state is:
         {state["self_evaluation"]}
+
+        The current game state is:
+        {state["game_state"]}
+
+        {state["game_insights"]}
         ''').strip())
 
     response = llm_move_generator.invoke(state['messages'] + [message])
-    state["options"] = MoveOptions.model_validate(response)
+    options = MoveOptions.model_validate(response)
+    state["options"] = augment_game_moves(state["game_state"], options)
     return state
 
 def reason(state: State) -> State:
@@ -145,6 +146,8 @@ def reason(state: State) -> State:
 
         Current game state:
         {state["game_state"]}
+
+        {state["game_insights"]}
 
         Choose one of these moves:
         {state["options"].model_dump_json(indent=2)}
@@ -219,7 +222,7 @@ print(graph.get_graph().draw_ascii())
 def main():
     graph.invoke(input={}, config={"recursion_limit": 100})
     # for message_chunk, metadata in graph.stream({}, stream_mode="messages"):
-    #     if message_chunk.content:
+    #     if message_chunk:
     #         print(message_chunk.content, end="", flush=True)
 
 if __name__ == "__main__":
