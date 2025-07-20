@@ -3,6 +3,7 @@ from typing import List
 from typing import Literal
 from typing import Tuple
 from pydantic import BaseModel
+from textwrap import dedent, indent
 
 __all__ = ['GameMoves', 'MoveOptions', 'Reasoning', 'Rule', 'get_rules', 'augment_game_moves']
 
@@ -12,8 +13,16 @@ class GameMoves(BaseModel):
 
 class AugmentedGameMoves(GameMoves):
     stop_positions: List[Tuple[int, int]]
-    # encountered_entities: List[str]
+    objects_on_path: List[str]
     # is_winning: bool
+
+    def __str__(self) -> str:
+        return dedent(f"""
+        Moves: {self.moves}
+        Goal of moves: {self.goal}
+        Assuming movement is not affected, stop positions for this move are: {self.stop_positions}
+        Assuming movement is not affected, "YOU" would encounter the following objects along the path (unordered): {self.objects_on_path}
+        """).strip()
 
 class MoveOptions(BaseModel):
     options: List[GameMoves]
@@ -22,6 +31,14 @@ class AugmentedMoveOptions(BaseModel):
     options: List[AugmentedGameMoves]
     you_positions: List[Tuple[int, int]]
     win_positions: List[Tuple[int, int]]
+
+    def __str__(self) -> str:
+        return dedent(f"""
+        "YOU" are currently at position(s): {self.you_positions}
+        Positions leading to a win state are currently at position: {self.win_positions if len(self.win_positions) > 0 else "Corrently no win positions active..."}
+        Move options:
+        {"\n\t".join([f"- Option {i+1}:\n{indent(str(opt), prefix="\t\t")}" for i, opt in enumerate(self.options)])}
+        """).strip()
 
 class Reasoning(BaseModel):
     reasoning: str
@@ -82,8 +99,16 @@ def _get_state_positions(game_state: str, state: str) -> list[tuple[int, int]]:
     else:
         return _get_coords_of_element(game_state, you_rule[0].entity)
 
-def _apply_moves(start: tuple[int, int], moves: list[Literal["up", "down", "left", "right"]], win_positions: list[tuple[int, int]]) -> tuple[int, int]:
+def _entities_at_pos(state_matrix: list[list[str]], pos: tuple[int, int]) -> set[str]:
+    try:
+        entities = state_matrix[pos[0] - 1][pos[1] - 1]
+    except IndexError:
+        return set()
+    return set(e for e in entities.split("<") if e)
+
+def _apply_moves(start: tuple[int, int], moves: list[Literal["up", "down", "left", "right"]], state_matrix: list[list[str]]) -> tuple[tuple[int, int], set[str]]:
     pos = start
+    objects: set[str] = set()
     for move in moves:
         match move:
             case "up":
@@ -94,28 +119,35 @@ def _apply_moves(start: tuple[int, int], moves: list[Literal["up", "down", "left
                 pos = (pos[0], pos[1] - 1)
             case "right":
                 pos = (pos[0], pos[1] + 1)
-    return pos
 
-def _augment_move(move: GameMoves, you_positions: list[tuple[int, int]], win_positions: list[tuple[int, int]]) -> AugmentedGameMoves:
-    move_applications = [_apply_moves(start, move.moves, win_positions) for start in you_positions]
+        objects |= _entities_at_pos(state_matrix, pos)
+    return pos, objects
+
+def _augment_move(game_state: str, move: GameMoves, you_positions: list[tuple[int, int]], win_positions: list[tuple[int, int]]) -> AugmentedGameMoves:
+    matrix = _parse_game_state(game_state)
+    move_applications = [_apply_moves(start, move.moves, matrix) for start in you_positions]
     stop_positions: list[tuple[int, int]] = []
-    for stop in move_applications:
+    objects_on_path: set[str] = set()
+    for stop, objects in move_applications:
         stop_positions.append(stop)
+        objects_on_path |= objects
 
     return AugmentedGameMoves(
         moves=move.moves,
         goal=move.goal,
         stop_positions=stop_positions,
+        objects_on_path=list(objects_on_path)
     )
 
 def augment_game_moves(game_state: str, moves: MoveOptions) -> AugmentedMoveOptions:
     you_positions = _get_state_positions(game_state, "you")
     win_positions = _get_state_positions(game_state, "win")
-    augmented_moves = [_augment_move(m, you_positions, win_positions) for m in moves.options]
+    augmented_moves = [_augment_move(game_state, m, you_positions, win_positions) for m in moves.options]
     return AugmentedMoveOptions(options=augmented_moves, you_positions=you_positions, win_positions=win_positions)
 
 def shortest_path_to_win(game_state: str) -> list[Literal["up", "down", "left", "right"]]:
     # TODO: implement (simple) path finding
+    # TODO: let LLM not pick moves but instead let it pick either an entity (e.g. text_stop or flag) and coordinates (if multiple otherwise None) and let pathfinding determine the moves
     pass
 
 if __name__ == "__main__":
@@ -152,13 +184,11 @@ if __name__ == "__main__":
     while True:
         game_state_tool = tools_by_name["get_game_state"]
         state = asyncio.run(game_state_tool.ainvoke(input={}))
-        parsed = _parse_game_state(state)
+        matrix = _parse_game_state(state)
         rules = get_rules(state)
         you_pos = _get_state_positions(state, "you")
         win_pos = _get_state_positions(state, "win")
         print("Rules: ", rules)
-        print("You: ", you_pos)
-        print("Winning: ", win_pos)
-        # print(state)
+        print(str(augment_game_moves(state, MoveOptions(options=[GameMoves(moves=["right", "right", "right", "right"], goal='r r r r')]))))
         break
         time.sleep(3)

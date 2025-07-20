@@ -31,6 +31,8 @@ assert STATE_PATH.is_file()
 assert MCP_PATH.is_file()
 assert RULES_PATH.is_file()
 
+# TODO: delete previous commands
+
 client = MultiServerMCPClient(
     {
         "baba_is_you": {
@@ -83,6 +85,7 @@ def init(state: State) -> State:
     config = configparser.ConfigParser()
     config.read(STATE_PATH, encoding="utf-8")
 
+    # TODO: setting level_won to false is not working
     # Set level_won to false
     config["status"]["level_won"] = "false"
 
@@ -90,6 +93,7 @@ def init(state: State) -> State:
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         config.write(f)
 
+    assert not level_won()
     return state
 
 def game_state(state: State) -> State:
@@ -150,7 +154,7 @@ def reason(state: State) -> State:
         {state["game_insights"]}
 
         Choose one of these moves:
-        {state["options"].model_dump_json(indent=2)}
+        {str(state["options"])}
 
         You can change the moves and/or the goal after you reasoned about the current state of the game.
         ''').strip())
