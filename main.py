@@ -3,6 +3,7 @@ from typing import Annotated, List, Literal
 import asyncio
 import json
 import configparser
+import time
 
 from typing_extensions import TypedDict
 
@@ -17,7 +18,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from textwrap import dedent
 
-from utils import MoveOptions, Reasoning, AugmentedMoveOptions, get_rules, augment_game_moves
+from utils import MoveOptions, Reasoning, AugmentedMoveOptions, get_rules, augment_game_moves, game_state_coords
 
 load_dotenv()
 
@@ -31,7 +32,6 @@ assert STATE_PATH.is_file()
 assert MCP_PATH.is_file()
 assert RULES_PATH.is_file()
 
-# TODO: delete previous commands
 
 client = MultiServerMCPClient(
     {
@@ -55,7 +55,10 @@ def level_won() -> bool:
     config = configparser.ConfigParser()
     config.read(STATE_PATH, encoding="utf-8")
     level_won = config["status"]["level_won"]
-    return level_won == "true"
+    won = level_won == "true"
+    if won:
+        print("LEVEL WON!!")
+    return won
 
 class State(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -85,24 +88,31 @@ def init(state: State) -> State:
     config = configparser.ConfigParser()
     config.read(STATE_PATH, encoding="utf-8")
 
-    # TODO: setting level_won to false is not working
     # Set level_won to false
     config["status"]["level_won"] = "false"
+    config["file"]["last_processed"] = "0"
 
     # Write the updated config back to the file
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         config.write(f)
 
     assert not level_won()
+
     return state
 
 def game_state(state: State) -> State:
     """Retrieve the game state"""
     game_state_tool = tools_by_name["get_game_state"]
+    time.sleep(2)
     game_state = asyncio.run(game_state_tool.ainvoke(input={}))
+    coords = game_state_coords(game_state)
     state["game_state"] = game_state
     state["game_insights"] = dedent(f'''
-        The current active rules are: {[str(r).upper() for r in get_rules(state["game_state"])]}
+        The current active rules are:
+        {[str(r).upper() for r in get_rules(state["game_state"])]}
+
+        The coordinates of relevant entities are:
+        {"\n".join([str(c) for c in coords])}
         ''').strip()
     return state
 
@@ -175,6 +185,8 @@ def call_tools(state: State) -> State:
     message = HumanMessage(content=dedent(f'''
         You are tasked with calling a tool to get into a winning state. The current game state is:
         {state["game_state"]}
+
+        {state["game_insights"]}
 
         Reasoning about the game state got the following conclusion with a suggested move:
         {state["reasoning"].model_dump_json(indent=2)}

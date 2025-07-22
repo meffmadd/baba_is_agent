@@ -5,7 +5,7 @@ from typing import Tuple
 from pydantic import BaseModel
 from textwrap import dedent, indent
 
-__all__ = ['GameMoves', 'MoveOptions', 'Reasoning', 'Rule', 'get_rules', 'augment_game_moves']
+__all__ = ['GameMoves', 'MoveOptions', 'Reasoning', 'Rule', 'get_rules', 'augment_game_moves', 'game_state_coords']
 
 class GameMoves(BaseModel):
     moves: List[Literal["up", "down", "left", "right"]]
@@ -59,11 +59,28 @@ class Rule(BaseModel):
         entity, state = [e.strip() for e in s.strip().split("is")]
         return cls(entity=entity, state=state)
 
+RELEVANT_ENTITIES = ["baba", "rock", "flag", "wall", "water"]
+
 _transpose = lambda matrix: [list(row) for row in zip(*matrix)]
 
 def _parse_game_state(game_state: str) -> list[list[str]]:
     lines = game_state.splitlines()[2:]
     return [[c.strip() for c in l.split("|")[1:]] for l in lines]
+
+def game_state_coords(game_state: str) -> list[list[str]]:
+    """Returns coordinates of relevant entities."""
+    matrix = _parse_game_state(game_state)
+    coords = []
+    for y, row in enumerate(matrix):
+        row_coords = []
+        for x, entity in enumerate(row):
+            entities = entity.split("<")
+            for e in entities:
+                if e in RELEVANT_ENTITIES or e.startswith("text_"):
+                    row_coords.append((x + 1, y + 1, e))
+        if len(row_coords) > 0:
+            coords.append(row_coords)
+    return coords
 
 def _rules_from_row(row: str) -> list[Rule]:
     tokens = row.split(sep=" ")
@@ -86,10 +103,10 @@ def get_rules(game_state: str) -> set[Rule]:
 def _get_coords_of_element(game_state: str, target: str) -> list[tuple[int, int]]:
     matrix = _parse_game_state(game_state)
     coords = []
-    for i in range(len(matrix)):
-        for j in range(len(matrix[i])):
-            if target in matrix[i][j] and "text_" not in matrix[i][j]:
-                coords.append((i + 1, j + 1))  # Convert 0-index to 1-index
+    for y in range(len(matrix)):
+        for x in range(len(matrix[y])):
+            if target in matrix[y][x] and "text_" not in matrix[y][x]:
+                coords.append((x + 1, y + 1))  # Convert 0-index to 1-index
     return coords
 
 def _get_state_positions(game_state: str, state: str) -> list[tuple[int, int]]:
@@ -101,7 +118,7 @@ def _get_state_positions(game_state: str, state: str) -> list[tuple[int, int]]:
 
 def _entities_at_pos(state_matrix: list[list[str]], pos: tuple[int, int]) -> set[str]:
     try:
-        entities = state_matrix[pos[0] - 1][pos[1] - 1]
+        entities = state_matrix[pos[1] - 1][pos[0] - 1]
     except IndexError:
         return set()
     return set(e for e in entities.split("<") if e)
@@ -145,9 +162,11 @@ def augment_game_moves(game_state: str, moves: MoveOptions) -> AugmentedMoveOpti
     augmented_moves = [_augment_move(game_state, m, you_positions, win_positions) for m in moves.options]
     return AugmentedMoveOptions(options=augmented_moves, you_positions=you_positions, win_positions=win_positions)
 
-def shortest_path_to_win(game_state: str) -> list[Literal["up", "down", "left", "right"]]:
-    # TODO: implement (simple) path finding
-    # TODO: let LLM not pick moves but instead let it pick either an entity (e.g. text_stop or flag) and coordinates (if multiple otherwise None) and let pathfinding determine the moves
+def shortest_path(game_state: str, goal: str | tuple[int, int]) -> list[Literal["up", "down", "left", "right"]]:
+    # TODO: implement (simple) A* path finding
+    # TODO: build simple "blocked" array, where 1 means blocked (based on rules (e.g. wall is stop, lava is hot + you is melt)) and 0 means "walkable"
+    # TODO: let LLM not pick moves but instead let it pick either an entity (e.g. text_stop or flag) or coordinates (if multiple otherwise None) and let pathfinding determine the moves
+    # TODO: add tool to check entity at position first
     pass
 
 if __name__ == "__main__":
