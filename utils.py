@@ -5,7 +5,7 @@ from typing import Tuple
 from pydantic import BaseModel
 from textwrap import dedent, indent
 
-__all__ = ['GameMoves', 'MoveOptions', 'Reasoning', 'Rule', 'get_rules', 'augment_game_moves', 'game_state_coords']
+__all__ = ['GameMoves', 'MoveOptions', 'Reasoning', 'Rule', 'get_rules', 'augment_game_moves', 'game_state_coords', 'get_state_positions']
 
 class GameMoves(BaseModel):
     moves: List[Literal["up", "down", "left", "right"]]
@@ -109,7 +109,7 @@ def _get_coords_of_element(game_state: str, target: str) -> list[tuple[int, int]
                 coords.append((x + 1, y + 1))  # Convert 0-index to 1-index
     return coords
 
-def _get_state_positions(game_state: str, state: str) -> list[tuple[int, int]]:
+def get_state_positions(game_state: str, state: str) -> list[tuple[int, int]]:
     you_rule = [r for r in get_rules(game_state) if r.state == state]
     if len(you_rule) == 0:
         return []
@@ -157,8 +157,8 @@ def _augment_move(game_state: str, move: GameMoves, you_positions: list[tuple[in
     )
 
 def augment_game_moves(game_state: str, moves: MoveOptions) -> AugmentedMoveOptions:
-    you_positions = _get_state_positions(game_state, "you")
-    win_positions = _get_state_positions(game_state, "win")
+    you_positions = get_state_positions(game_state, "you")
+    win_positions = get_state_positions(game_state, "win")
     augmented_moves = [_augment_move(game_state, m, you_positions, win_positions) for m in moves.options]
     return AugmentedMoveOptions(options=augmented_moves, you_positions=you_positions, win_positions=win_positions)
 
@@ -205,8 +205,8 @@ if __name__ == "__main__":
         state = asyncio.run(game_state_tool.ainvoke(input={}))
         matrix = _parse_game_state(state)
         rules = get_rules(state)
-        you_pos = _get_state_positions(state, "you")
-        win_pos = _get_state_positions(state, "win")
+        you_pos = get_state_positions(state, "you")
+        win_pos = get_state_positions(state, "win")
         print("Rules: ", rules)
         print(str(augment_game_moves(state, MoveOptions(options=[GameMoves(moves=["right", "right", "right", "right"], goal='r r r r')]))))
         break
