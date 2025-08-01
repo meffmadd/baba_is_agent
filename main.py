@@ -11,7 +11,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage, ToolMessage
-from pydantic import BaseModel
+from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from dotenv import load_dotenv
@@ -46,10 +46,10 @@ client = MultiServerMCPClient(
 
 
 allowed_tools = ["execute_commands", "undo_multiple", "restart_level"]
-all_tools = asyncio.run(client.get_tools())
-tools_by_name = {t.name: t for t in all_tools}
 
-tools = [t for t in all_tools if t.name in allowed_tools]
+all_tools: list[BaseTool] = asyncio.run(client.get_tools())
+tools_by_name: dict[str, BaseTool] = {t.name: t for t in all_tools}
+tools: list[BaseTool] = [t for t in all_tools if t.name in allowed_tools]
 
 def level_won() -> bool:
     config = configparser.ConfigParser()
@@ -232,10 +232,9 @@ builder.add_edge("call_tools", "tool_node")
 builder.add_edge("tool_node", "game_state") # Loop
 
 graph = builder.compile()
-# print(graph.get_graph().draw_mermaid())
-print(graph.get_graph().draw_ascii())
 
 def main():
+    print(graph.get_graph().draw_ascii())
     graph.invoke(input={}, config={"recursion_limit": 100})
     # for message_chunk, metadata in graph.stream({}, stream_mode="messages"):
     #     if message_chunk:
