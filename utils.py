@@ -266,14 +266,17 @@ def shortest_path(game_state: str, goal: tuple[int, int], last_move: Literal["up
     if prev_blocked:
         blocked = _blocked_entities(game_state, avoid_text=False)
     assert not blocked[goal_prev[1]][goal_prev[0]]
-    you_pos = get_state_positions(state, "you")[0] # only take on "you" position
-    you_coord = (you_pos[0] - 1, you_pos[1] - 1)
+    you_pos = get_state_positions(state, "you") # only take on "you" position
 
-    path = a_star(blocked, you_coord, goal_prev)
-    if path is None:
-        return []
-    moves = convert_path_to_moves([you_coord] + path)
-    return moves + [last_move]
+    for you in you_pos:
+        you_coord = (you[0] - 1, you[1] - 1)
+
+        path = a_star(blocked, you_coord, goal_prev)
+        if path is None:
+            continue
+        moves = convert_path_to_moves([you_coord] + path)
+        return moves + [last_move]
+    return []
 
 if __name__ == "__main__":
     import time
