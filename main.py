@@ -1,23 +1,23 @@
 import os
-from typing import Annotated, Literal
+from typing import Annotated, Literal, List
 import asyncio
-import json
 import configparser
 import time
+import json
 
 from typing_extensions import TypedDict
 
 from langgraph.graph import StateGraph, START
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage, ToolMessage
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, InjectedToolArg, StructuredTool
 from langchain_openai import ChatOpenAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from dotenv import load_dotenv
 from pathlib import Path
 from textwrap import dedent
 
-from utils import MoveOptions, Reasoning, AugmentedMoveOptions, augment_game_moves, GameInsights
+from utils import MoveOptions, Reasoning, AugmentedMoveOptions, augment_game_moves, GameInsights, shortest_path, GameMoves, Position
 
 load_dotenv()
 
@@ -44,11 +44,51 @@ client = MultiServerMCPClient(
 )
 
 
-allowed_tools = ["execute_commands", "undo_multiple", "restart_level"]
+allowed_tools = ["undo_multiple", "restart_level"]
 
 all_tools: list[BaseTool] = asyncio.run(client.get_tools())
 tools_by_name: dict[str, BaseTool] = {t.name: t for t in all_tools}
-tools: list[BaseTool] = [t for t in all_tools if t.name in allowed_tools]
+
+GAME_MOVE_EXAMPLES = """Examples of moves:
+1. To simply move to a position (e.g. coming from above) specify a Position [{"x": 13, "y": 22, "last_move": "down"}]. You only have to specify the final position you want to end up and if it can be reached the shortest path of the move will be automatically determined.
+2. To deactivate a specific vertical rule you can specify the position of the "text_is" part of the rule, for example at (9, 18) and push it to the right. So the move is [{"x": 9, "y": 18, "last_move": "right"}]. After this you will be at coordinates (9,18) and you moved the "text_is" block to the right, which is now at coordinates (10, 18) and the rule is deactivated.
+3. To move a block (e.g. a "rock") at position (5,5) 3 steps down and 2 steps to the left (ending up at (8, 3)), move to the position of the "rock" with the last move of "down", specify your new positon two steps down ("rock" will be 3 steps down), then specify the new position of the block with the last move "left" and specify the position one step to the left. So the moves are [{"x": 5, "y": 5, "last_move": "down"}, {"x": 5, "y": 7, "last_move": "down"}, {"x": 5, "y": 8, "last_move": "down"}, {"x": 4, "y": 8, "last_move": "left"}]. The "rock" is now at position (8, 3).
+"""
+
+def _apply_moves(
+    moves: List[Position],
+    goal: str,
+    game_state: Annotated[str, InjectedToolArg],
+) -> str:
+    status: list[str] = []
+    for move in moves:
+        x, y, last_move = move.x, move.y, move.last_move
+        path = shortest_path(game_state, (x, y), last_move)
+        if len(path) == 0:
+            status.append(f"Finding path to {(x, y)} was not possible... Stopping executing moves!")
+        execute_commands = tools_by_name["execute_commands"]
+        asyncio.run(execute_commands.ainvoke(input={"commands": ",".join(path)}))
+        status.append(f"Move successful! Path {",".join(path)} was executed.")
+
+    if len(status) != len(moves):
+        message = f"Could not apply moves! Goal '{goal}' could not be accomplished. Intermediate step failed:\n"
+    else:
+        message = f"Applying moves successful! The specified goal '{goal}' was accomplished.\n"
+    return message + "\n".join(status)
+
+apply_moves = StructuredTool.from_function(
+    func=_apply_moves,
+    name="apply_moves",
+    description=f"""Apply a list of Positions to accomplish a goal.
+    {GAME_MOVE_EXAMPLES}
+
+    The tool returns the status of each individual step with a success or error message at the beginning.
+    """,
+    # args_schema=GameMovesToolCall,
+)
+
+tools_by_name["apply_moves"] = apply_moves
+tools: list[BaseTool] = [t for t in all_tools if t.name in allowed_tools] + [apply_moves]
 
 def level_won() -> bool:
     config = configparser.ConfigParser()
@@ -120,13 +160,12 @@ def evaluate(state: State) -> State:
 def generate_options(state: State) -> State:
     """Generate multiple approaches based on evaluation"""
     message = HumanMessage(content=dedent(f'''
-        Based on the previous evaluation, come up with 3 different options.
-        Return a JSON object with the fields "moves" and "goal".
-        Moves should accomplish a specific broader goal, like "deactivate rule", so the list of moves can contain easily contain 10+ individual moves.
-        Moves are a list of strings of either "up", "down", "left", or "right". In the goal field specify what your goal with the moves is.
+        Based on the previous evaluation, come up with 3 different move options.
+        Return a list of JSON objects with the fields "moves" and "goal".
+        The field "moves" specifes a list of positions on the grid to move to. Positions are given by an object of x and y coordinates and the direction of the last move ("up", "down", "left", "right").
+        {GAME_MOVE_EXAMPLES}
 
-        For example, move options might be:
-        {{"options": [{{"moves": ["up", "up","right" ,"right", "down"], "goal": "Go into the corner to move the text."}}]}}
+        The goal should describe a goal if the moves, for example, "Reach goal." or "Deactivate WALL IS STOP rule." etc.
 
         The evaluation of the current game state is:
         {state["self_evaluation"]}
@@ -183,7 +222,9 @@ def call_tools(state: State) -> State:
         Reasoning about the game state got the following conclusion with a suggested move:
         {state["reasoning"].model_dump_json(indent=2)}
 
-        You can execute the suggested moves by using the "execute_commands" tool.
+        You can execute the suggested moves by using the "apply_moves" tool.
+        {GAME_MOVE_EXAMPLES}
+
         If you are unsure that the suggested moves are useful, you can also undo steps with the "undo_multiple" tool,
         or restart the level using the "restart_level" tool.
         ''').strip())
@@ -201,8 +242,13 @@ def execute_tools(state: State) -> State:
         return state
 
     for tool_call in message.tool_calls:
-        tool = tools_by_name[tool_call["name"]]
-        observation = asyncio.run(tool.ainvoke(tool_call["args"]))
+        if tool_call["name"] != "apply_moves":
+            tool = tools_by_name[tool_call["name"]]
+            observation = asyncio.run(tool.ainvoke(tool_call["args"]))
+        else:
+            args = tool_call["args"]
+            args["game_state"] = state["game_state"]
+            observation = apply_moves.invoke(input=args)
         messages.append(ToolMessage(content=observation, tool_call_id=tool_call["id"]))
     return state
 

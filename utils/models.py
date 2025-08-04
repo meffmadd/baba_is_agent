@@ -1,11 +1,12 @@
 from typing import Self, List, Literal, Set, Tuple
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from textwrap import dedent, indent
 
+
 class Position(BaseModel):
-    x: int
-    y: int
-    last_move: Literal["up", "down", "left", "right"]
+    x: int = Field(description="x-Coordinate of the postion to move to")
+    y: int = Field(description="y-Coordinate of the postion to move to")
+    last_move: Literal["up", "down", "left", "right"] = Field(description="Last move before moving to the position")
 
     def __str__(self):
         return dedent(f"""
@@ -14,8 +15,8 @@ class Position(BaseModel):
         """).strip()
 
 class GameMoves(BaseModel):
-    moves: List[Position]
-    goal: str
+    moves: List[Position] = Field(description='A list of moves.')
+    goal: str = Field(description='A description of the goal for the moves.')
 
 class MoveOptions(BaseModel):
     options: List[GameMoves]
