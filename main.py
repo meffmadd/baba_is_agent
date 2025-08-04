@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 from textwrap import dedent
 
-from utils import MoveOptions, Reasoning, AugmentedMoveOptions, augment_game_moves, GameInsights, shortest_path, GameMoves, Position
+from utils import MoveOptions, Reasoning, AugmentedMoveOptions, augment_game_moves, GameInsights, shortest_path, Position, GameMoves
+from utils import GameMoves
 
 load_dotenv()
 
@@ -61,6 +62,7 @@ def _apply_moves(
     game_state: Annotated[str, InjectedToolArg],
 ) -> str:
     status: list[str] = []
+    # TODO: append path together so only invoke tool once!
     for move in moves:
         x, y, last_move = move.x, move.y, move.last_move
         path = shortest_path(game_state, (x, y), last_move)
@@ -84,7 +86,7 @@ apply_moves = StructuredTool.from_function(
 
     The tool returns the status of each individual step with a success or error message at the beginning.
     """,
-    # args_schema=GameMovesToolCall,
+    # args_schema=GameMoves,
 )
 
 tools_by_name["apply_moves"] = apply_moves
@@ -160,10 +162,17 @@ def evaluate(state: State) -> State:
 def generate_options(state: State) -> State:
     """Generate multiple approaches based on evaluation"""
     message = HumanMessage(content=dedent(f'''
-        Based on the previous evaluation, come up with 3 different move options.
-        Return a list of JSON objects with the fields "moves" and "goal".
+        Based on the previous evaluation, come up with 3 different move options. Return a JSON object with the field "options" that has a list of move options.
+        A move option is a list of JSON objects with the fields "moves" and "goal".
         The field "moves" specifes a list of positions on the grid to move to. Positions are given by an object of x and y coordinates and the direction of the last move ("up", "down", "left", "right").
         {GAME_MOVE_EXAMPLES}
+
+        Putting it all together the move options might be specified as:
+        {MoveOptions(options=[
+            GameMoves(moves=[Position(x=1, y=7, last_move="down")], goal="Move to finish"),
+            GameMoves(moves=[Position(x=1, y=1, last_move="up")], goal="Move to origin"),
+            GameMoves(moves=[Position(x=7, y=19, last_move="left")], goal="Move to finish")
+        ]).model_dump_json()}
 
         The goal should describe a goal if the moves, for example, "Reach goal." or "Deactivate WALL IS STOP rule." etc.
 

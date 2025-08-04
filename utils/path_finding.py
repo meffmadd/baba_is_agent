@@ -96,14 +96,17 @@ def convert_path_to_moves(path: list[tuple[int,int]]) -> list[Literal["up", "dow
 
 # TODO: add tool to convert input to path and execute via
 def shortest_path(game_state: str, goal: tuple[int, int], last_move: Literal["up", "down", "left", "right"]) -> list[Literal["up", "down", "left", "right"]]:
+    # TODO: raise appropriate exceptions to pass reason for failure (e.g. goal is blocked, prev_goal is blocked etc.)
+    # TODO: if goal is on text (e.g. to deactivate) it is handled not gracefully -> it should avoid text within the path but not if the goal is text
     goal = (goal[0] - 1, goal[1] - 1)
     goal_prev = apply_move(goal, last_move, reverse=True)
     blocked = _blocked_entities(game_state)
-    assert not blocked[goal[1]][goal[0]]
+    blocked_no_text = _blocked_entities(game_state, avoid_text=False)
+    if blocked_no_text[goal[1]][goal[0]]:
+        return []
     prev_blocked = blocked[goal_prev[1]][goal_prev[0]]
     if prev_blocked:
-        blocked = _blocked_entities(game_state, avoid_text=False)
-    assert not blocked[goal_prev[1]][goal_prev[0]]
+        return []
     you_pos = get_state_positions(game_state, "you") # only take on "you" position
 
     for you in you_pos:
