@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from textwrap import dedent
 
-from utils import MoveOptions, Reasoning, AugmentedMoveOptions, get_rules, augment_game_moves, game_state_coords
+from utils import MoveOptions, Reasoning, AugmentedMoveOptions, augment_game_moves, GameInsights
 
 load_dotenv()
 
@@ -104,15 +104,8 @@ def game_state(state: State) -> State:
     game_state_tool = tools_by_name["get_game_state"]
     time.sleep(2)
     game_state = asyncio.run(game_state_tool.ainvoke(input={}))
-    coords = game_state_coords(game_state)
     state["game_state"] = game_state
-    state["game_insights"] = dedent(f'''
-        The current active rules are:
-        {[str(r).upper() for r in get_rules(state["game_state"])]}
-
-        The coordinates of relevant entities are:
-        {"\n".join([str(c) for c in coords])}
-        ''').strip()
+    state["game_insights"] = str(GameInsights.from_state(game_state))
     return state
 
 def evaluate(state: State) -> State:

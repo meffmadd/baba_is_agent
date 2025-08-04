@@ -11,7 +11,7 @@ def _parse_game_state(game_state: str) -> list[list[str]]:
     lines = game_state.splitlines()[2:]
     return [[c.strip() for c in l.split("|")[1:]] for l in lines]
 
-def game_state_coords(game_state: str) -> list[list[str]]:
+def game_state_coords(game_state: str) -> list[list[tuple]]:
     """Returns coordinates of relevant entities."""
     matrix = _parse_game_state(game_state)
     coords = []
@@ -59,13 +59,6 @@ def get_state_positions(game_state: str, state: str) -> list[tuple[int, int]]:
         return []
     else:
         return _get_coords_of_element(game_state, you_rule[0].entity)
-
-def _entities_at_pos(state_matrix: list[list[str]], pos: tuple[int, int]) -> set[str]:
-    try:
-        entities = state_matrix[pos[1] - 1][pos[0] - 1]
-    except IndexError:
-        return set()
-    return set(e for e in entities.split("<") if e)
 
 def apply_move(pos: tuple[int, int], move: Literal["up", "down", "left", "right"], reverse: bool = False) -> tuple[int, int]:
     quantity = -1 if reverse else 1
