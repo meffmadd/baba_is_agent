@@ -49,10 +49,47 @@ allowed_tools = ["undo_multiple", "restart_level"]
 all_tools: list[BaseTool] = asyncio.run(client.get_tools())
 tools_by_name: dict[str, BaseTool] = {t.name: t for t in all_tools}
 
-GAME_MOVE_EXAMPLES = """Examples of moves:
+POSITION_LIST_EXPLAINER = """
+Positions are lists of (JSON) objects with x and y coordinates and the direction of the last move ("up", "down", "left", "right").
+A single postion in the list represents a move within the game. The path to get to the specified x,y-coordinates is found automatically (if possible).
+Assuming only a single entity satisfies the "YOU" rule, executing a valid move to a position results in the entity to end up at that position.
+The "last_move" field allows control over how to get to this final position, e.g. to deactivate a rule correctly. So it is NOT executed after the final position at (x, y) is reached but instead at the penultimate step to get to (x, y).
+
+Examples of moves using positions:
 1. To simply move to a position (e.g. coming from above) specify a Position [{"x": 13, "y": 22, "last_move": "down"}]. You only have to specify the final position you want to end up and if it can be reached the shortest path of the move will be automatically determined.
 2. To deactivate a specific vertical rule you can specify the position of the "text_is" part of the rule, for example at (9, 18) and push it to the right. So the move is [{"x": 9, "y": 18, "last_move": "right"}]. After this you will be at coordinates (9, 18) and you moved the "text_is" block to the right, which is now at coordinates (10, 18) and the rule is deactivated.
 3. To move a block (e.g. a "rock") at position (5,5) 3 steps down and 2 steps to the left (ending up at (8, 3)), move to the position of the "rock" with the last move of "down", specify your new positon two steps down ("rock" will be 3 steps down), then specify the new position of the block with the last move "left" and specify the position one step to the left. So the moves are [{"x": 5, "y": 5, "last_move": "down"}, {"x": 5, "y": 7, "last_move": "down"}, {"x": 5, "y": 8, "last_move": "down"}, {"x": 4, "y": 8, "last_move": "left"}]. The "rock" is now at position (8, 3).
+"""
+
+GAME_MOVE_EXPLAINER = f"""A game move is a JSON object with the fields "moves" and "goal". The field "moves" specifes a list of positions on the grid to move to.
+{POSITION_LIST_EXPLAINER}
+
+An example of a game move:
+{GameMoves(moves=[Position(x=10, y=7, last_move="down")], goal="Move to flag").model_dump_json()}
+"""
+
+MOVE_OPTIONS_EXPLAINER = f"""Move options are a JSON object with the field "options" that describes a list of game moves.
+{GAME_MOVE_EXPLAINER}
+
+Putting it all together the move options might be specified as:
+{MoveOptions(options=[
+    GameMoves(moves=[Position(x=1, y=7, last_move="down")], goal="Move to flag"),
+    GameMoves(moves=[Position(x=1, y=1, last_move="up")], goal="Move to origin"),
+    GameMoves(moves=[Position(x=7, y=19, last_move="left")], goal="Move to text_is")
+]).model_dump_json()}
+"""
+
+REASONING_EXPLAINER = f"""The reasoning is a JSON object with fields "reasoning" and "suggestion" (a game move).
+{GAME_MOVE_EXPLAINER}
+
+The "reasoning" field is just a string with a justification/reasoning why the suggested game move is useful in the current state of the game.
+
+Putting it all toghther: {
+    Reasoning(
+        reasoning="The path to the flat (which is winning) is clear.",
+        suggestion=GameMoves(moves=[Position(x=10, y=15, last_move="up")], goal="Move to the flat.")
+    ).model_dump_json()
+}
 """
 
 # TODO: add tool to move_entity -> carry a pushable entity to a position
@@ -84,7 +121,7 @@ apply_moves = StructuredTool.from_function(
     func=_apply_moves,
     name="apply_moves",
     description=f"""Apply a list of Positions to accomplish a goal.
-    {GAME_MOVE_EXAMPLES}
+    {POSITION_LIST_EXPLAINER}
 
     The tool returns the status of each individual step with a success or error message at the beginning.
     """,
@@ -162,20 +199,6 @@ def evaluate(state: State) -> State:
 def generate_options(state: State) -> State:
     """Generate multiple approaches based on evaluation"""
     message = HumanMessage(content=dedent(f'''
-        Based on the previous evaluation, come up with 3 different move options. Return a JSON object with the field "options" that has a list of move options.
-        A move option is a list of JSON objects with the fields "moves" and "goal".
-        The field "moves" specifes a list of positions on the grid to move to. Positions are given by an object of x and y coordinates and the direction of the last move ("up", "down", "left", "right").
-        {GAME_MOVE_EXAMPLES}
-
-        Putting it all together the move options might be specified as:
-        {MoveOptions(options=[
-            GameMoves(moves=[Position(x=1, y=7, last_move="down")], goal="Move to finish"),
-            GameMoves(moves=[Position(x=1, y=1, last_move="up")], goal="Move to origin"),
-            GameMoves(moves=[Position(x=7, y=19, last_move="left")], goal="Move to finish")
-        ]).model_dump_json()}
-
-        The goal should describe a goal if the moves, for example, "Reach goal." or "Deactivate WALL IS STOP rule." etc.
-
         The evaluation of the current game state is:
         {state["self_evaluation"]}
 
@@ -183,6 +206,9 @@ def generate_options(state: State) -> State:
         {state["game_state"]}
 
         {state["game_insights"]}
+
+        Come up with 3 different game moves. Return the move options as a JSON objects.
+        {MOVE_OPTIONS_EXPLAINER}
         ''').strip())
 
     response = llm_move_generator.invoke(state['messages'] + [message])
@@ -194,9 +220,8 @@ def reason(state: State) -> State:
     """Reasoning through options in detail"""
     message = HumanMessage(content=dedent(f'''
         Reason about the current state and the move options generated.
-        Return a brief but to the point analysis of the current plan in a single sentence!
-        The reasoning should be returned as a JSON object with fields "reasoning" and "suggestion" (a game move).
-        For example: {{"reasoning": "There are ...", "suggestion": "{{"moves": ["..."], "goal": "Reach ..."}}}}
+        Return a brief but to the point analysis of the current plan!
+        {REASONING_EXPLAINER}
 
         Current game state:
         {state["game_state"]}
@@ -232,7 +257,7 @@ def call_tools(state: State) -> State:
         {state["reasoning"].model_dump_json(indent=2)}
 
         You can execute the suggested moves by using the "apply_moves" tool.
-        {GAME_MOVE_EXAMPLES}
+        {POSITION_LIST_EXPLAINER}
 
         If you are unsure that the suggested moves are useful, you can also undo steps with the "undo_multiple" tool,
         or restart the level using the "restart_level" tool.

@@ -1,7 +1,9 @@
 from typing import Literal
 from heapq import heappush, heappop
 
-from .base import get_rules, _parse_game_state, apply_move, get_state_positions
+from langchain_core.runnables.config import P
+
+from .base import get_rules, _parse_game_state, apply_move, get_state_positions, game_state_coords
 
 def _blocked_entities(game_state: str, avoid_text: bool = True) -> list[list[int]]:
     """ Build simple "blocked" grid, where 1 means blocked (based on rules (e.g. wall is stop, lava is hot + you is melt)) and 0 means allowed. """
@@ -118,3 +120,23 @@ def shortest_path(game_state: str, goal: tuple[int, int], last_move: Literal["up
         moves = convert_path_to_moves([you_coord] + path)
         return moves + [last_move]
     return []
+
+
+def reachable_entities(game_state: str) -> list[list[tuple[int, int, str]]]:
+    coords = game_state_coords(game_state)
+    reachable_entities: list[list[tuple[int, int, str]]] = []
+    for row in coords:
+        row_reachable = []
+        for x, y, entity in row:
+            path = None
+            last_moves: list[Literal["up", "down", "left", "right"]] = ["up", "down", "left", "right"]
+            for last_move in last_moves:
+                p = shortest_path(game_state, (x, y), last_move)
+                if len(p) > 0:
+                    path = p
+                    break
+            if path:
+                row_reachable.append((x, y, entity))
+        if len(row_reachable) > 0:
+            reachable_entities.append(row_reachable)
+    return reachable_entities

@@ -11,7 +11,7 @@ def _parse_game_state(game_state: str) -> list[list[str]]:
     lines = game_state.splitlines()[2:]
     return [[c.strip() for c in l.split("|")[1:]] for l in lines]
 
-def game_state_coords(game_state: str) -> list[list[tuple]]:
+def game_state_coords(game_state: str) -> list[list[tuple[int, int, str]]]:
     """Returns coordinates of relevant entities."""
     matrix = _parse_game_state(game_state)
     coords = []

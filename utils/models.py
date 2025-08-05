@@ -66,16 +66,15 @@ class Rule(BaseModel):
 
 class GameInsights(BaseModel):
     active_rules: Set[Rule]
-    # TODO: turn into "reachable_entities" -> exclude "you"
-    relevant_entities: List[List[tuple]]
+    reachable_entities: List[List[tuple]]
     you_positions: List[Tuple[int, int]]
     win_positions: List[Tuple[int, int]]
     path_to_win: GameMoves | None
 
     @staticmethod
     def from_state(game_state: str) -> "GameInsights":
-        from .path_finding import shortest_path
-        from .base import get_rules, game_state_coords, get_state_positions
+        from .path_finding import shortest_path, reachable_entities
+        from .base import get_rules, get_state_positions
 
         win_positions = get_state_positions(game_state, "win")
         move: GameMoves | None = None
@@ -90,7 +89,7 @@ class GameInsights(BaseModel):
 
         return GameInsights(
             active_rules=get_rules(game_state),
-            relevant_entities=game_state_coords(game_state),
+            reachable_entities=reachable_entities(game_state),
             you_positions=get_state_positions(game_state, "you"),
             win_positions=win_positions,
             path_to_win=move
@@ -101,8 +100,8 @@ class GameInsights(BaseModel):
         The current active rules are:
         {[str(r).upper() for r in self.active_rules]}
 
-        The coordinates of relevant entities are:
-        {"\n".join([str(c) for c in self.relevant_entities])}
+        The coordinates of relevant reachable entities in the form (x, y, entity) are:
+        {"\n".join([str(c) for c in self.reachable_entities])}
 
         'YOU' are currently at position(s): {self.you_positions}.
         Wining positions are currently at: {self.win_positions}.
