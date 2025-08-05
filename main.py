@@ -18,7 +18,6 @@ from pathlib import Path
 from textwrap import dedent
 
 from utils import MoveOptions, Reasoning, AugmentedMoveOptions, augment_game_moves, GameInsights, shortest_path, Position, GameMoves
-from utils import GameMoves
 
 load_dotenv()
 
@@ -52,7 +51,7 @@ tools_by_name: dict[str, BaseTool] = {t.name: t for t in all_tools}
 
 GAME_MOVE_EXAMPLES = """Examples of moves:
 1. To simply move to a position (e.g. coming from above) specify a Position [{"x": 13, "y": 22, "last_move": "down"}]. You only have to specify the final position you want to end up and if it can be reached the shortest path of the move will be automatically determined.
-2. To deactivate a specific vertical rule you can specify the position of the "text_is" part of the rule, for example at (9, 18) and push it to the right. So the move is [{"x": 9, "y": 18, "last_move": "right"}]. After this you will be at coordinates (9,18) and you moved the "text_is" block to the right, which is now at coordinates (10, 18) and the rule is deactivated.
+2. To deactivate a specific vertical rule you can specify the position of the "text_is" part of the rule, for example at (9, 18) and push it to the right. So the move is [{"x": 9, "y": 18, "last_move": "right"}]. After this you will be at coordinates (9, 18) and you moved the "text_is" block to the right, which is now at coordinates (10, 18) and the rule is deactivated.
 3. To move a block (e.g. a "rock") at position (5,5) 3 steps down and 2 steps to the left (ending up at (8, 3)), move to the position of the "rock" with the last move of "down", specify your new positon two steps down ("rock" will be 3 steps down), then specify the new position of the block with the last move "left" and specify the position one step to the left. So the moves are [{"x": 5, "y": 5, "last_move": "down"}, {"x": 5, "y": 7, "last_move": "down"}, {"x": 5, "y": 8, "last_move": "down"}, {"x": 4, "y": 8, "last_move": "left"}]. The "rock" is now at position (8, 3).
 """
 
@@ -62,20 +61,22 @@ def _apply_moves(
     game_state: Annotated[str, InjectedToolArg],
 ) -> str:
     status: list[str] = []
-    # TODO: append path together so only invoke tool once!
+    paths = []
     for move in moves:
         x, y, last_move = move.x, move.y, move.last_move
         path = shortest_path(game_state, (x, y), last_move)
         if len(path) == 0:
             status.append(f"Finding path to {(x, y)} was not possible... Stopping executing moves!")
-        execute_commands = tools_by_name["execute_commands"]
-        asyncio.run(execute_commands.ainvoke(input={"commands": ",".join(path)}))
+            break
+        paths += path
         status.append(f"Move successful! Path {",".join(path)} was executed.")
 
     if len(status) != len(moves):
         message = f"Could not apply moves! Goal '{goal}' could not be accomplished. Intermediate step failed:\n"
     else:
-        message = f"Applying moves successful! The specified goal '{goal}' was accomplished.\n"
+        execute_commands = tools_by_name["execute_commands"]
+        result = asyncio.run(execute_commands.ainvoke(input={"commands": ",".join(paths)}))
+        message = f"Applying moves successful! Tool message: '{result}' The specified goal '{goal}' was accomplished.\n"
     return message + "\n".join(status)
 
 apply_moves = StructuredTool.from_function(
@@ -108,8 +109,6 @@ class State(TypedDict):
     self_evaluation: str
     options: AugmentedMoveOptions
     reasoning: Reasoning
-    mistake_detection: str
-
 
 builder = StateGraph(State)
 
