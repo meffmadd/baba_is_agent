@@ -66,6 +66,7 @@ class Rule(BaseModel):
 
 class GameInsights(BaseModel):
     active_rules: Set[Rule]
+    # TODO: turn into "reachable_entities" -> exclude "you"
     relevant_entities: List[List[tuple]]
     you_positions: List[Tuple[int, int]]
     win_positions: List[Tuple[int, int]]

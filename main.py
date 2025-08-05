@@ -55,6 +55,7 @@ GAME_MOVE_EXAMPLES = """Examples of moves:
 3. To move a block (e.g. a "rock") at position (5,5) 3 steps down and 2 steps to the left (ending up at (8, 3)), move to the position of the "rock" with the last move of "down", specify your new positon two steps down ("rock" will be 3 steps down), then specify the new position of the block with the last move "left" and specify the position one step to the left. So the moves are [{"x": 5, "y": 5, "last_move": "down"}, {"x": 5, "y": 7, "last_move": "down"}, {"x": 5, "y": 8, "last_move": "down"}, {"x": 4, "y": 8, "last_move": "left"}]. The "rock" is now at position (8, 3).
 """
 
+# TODO: add tool to move_entity -> carry a pushable entity to a position
 def _apply_moves(
     moves: List[Position],
     goal: str,
@@ -76,7 +77,7 @@ def _apply_moves(
     else:
         execute_commands = tools_by_name["execute_commands"]
         result = asyncio.run(execute_commands.ainvoke(input={"commands": ",".join(paths)}))
-        message = f"Applying moves successful! Tool message: '{result}' The specified goal '{goal}' was accomplished.\n"
+        message = f"Applying moves successful! Tool message: '{result}' The specified goal '{goal}' was accomplished. Paths executed: '{','.join(paths)}'."
     return message + "\n".join(status)
 
 apply_moves = StructuredTool.from_function(
