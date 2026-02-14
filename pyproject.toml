@@ -22,4 +22,6 @@ baba-mcp = [
 [dependency-groups]
 dev = [
     "langgraph-cli[inmem]>=0.3.4",
+    "ruff>=0.15.1",
+    "ty>=0.0.17",
 ]
