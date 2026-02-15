@@ -30,5 +30,35 @@ async function getGameRules(): Promise<string> {
   return "";
 }
 
-const result = await getGameRules();
-console.log(result);
+export async function getGameRules(): Promise<string> {
+  const transport = new StdioClientTransport({
+    command: "uv",
+    args: ["run", "python", "game_mcp.py"],
+    cwd: MCP_DIR,
+  });
+
+  const client = new Client(
+    { name: "baba-is-agent", version: "1.0.0" },
+    { capabilities: {} }
+  );
+
+  await client.connect(transport);
+
+  const result = await client.callTool({
+    name: "game_rules",
+    arguments: { topic: "basic" },
+  });
+
+  await client.close();
+
+  if (result.content && result.content[0].type === "text") {
+    return result.content[0].text;
+  }
+  return "";
+}
+
+// Run as script when executed directly
+if (import.meta.main) {
+  const result = await getGameRules();
+  console.log(result);
+}

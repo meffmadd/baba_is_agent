@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { getGameState } from "./utils/get_game_state.js";
-import { getRules, getStatePositions } from "./base.js";
+import { getRules, getStatePositions, type Direction } from "./base.js";
 import { reachableEntities, shortestPath } from "./path_finding.js";
 import type { GameInsights } from "./models.js";
 
@@ -10,10 +10,7 @@ export default tool({
     "reachable entities, YOU position, win position, and path to win if exists.",
   args: {},
   async execute(args, context: { directory: string }) {
-    console.log("[game_insights] Fetching game state...");
     const gameState = await getGameState();
-    
-    console.log("[game_insights] Game state received, analyzing...");
     
     const rules = getRules(gameState);
     const youPositions = getStatePositions(gameState, "you");
@@ -45,13 +42,7 @@ export default tool({
         const path = shortestPath(gameState, winPositions[0]!, lastMove);
         if (path.length > 0) {
           pathToWin = {
-            moves: [
-              {
-                x: winPositions[0]![0],
-                y: winPositions[0]![1],
-                last_move: lastMove,
-              }
-            ],
+            moves: path,
             goal: "Move to Goal",
           };
           break;
@@ -67,7 +58,6 @@ export default tool({
       path_to_win: pathToWin,
     };
 
-    console.log("[game_insights] Analysis complete");
     return JSON.stringify(result);
   },
 });

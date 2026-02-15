@@ -4,12 +4,8 @@
     "baba_is_you": {
       "type": "local",
       "command": ["uv", "run", "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/baba_is_eval/game_mcp.py"],
-      "enabled": true
+      "enabled": false
     }
   },
-  "tools": {
-    "baba_is_you_exit_level": false,
-    "baba_is_you_start_level": false,
-    "baba_is_you_*": true
-  }
+  "tools": {}
 }

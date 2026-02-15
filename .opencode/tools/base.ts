@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { Rule } from "./models.js";
 
 const RELEVANT_ENTITIES = ["baba", "rock", "flag", "wall", "water"];

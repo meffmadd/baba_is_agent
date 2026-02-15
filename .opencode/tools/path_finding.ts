@@ -219,7 +219,7 @@ export function shortestPath(
       continue;
     }
 
-    const moves = convertPathToMoves([youCoord, ...path]);
+    const moves = convertPathToMoves(path);
     return [...moves, lastMove];
   }
 

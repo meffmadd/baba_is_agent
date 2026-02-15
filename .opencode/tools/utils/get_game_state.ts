@@ -1,45 +1,110 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import * as fs from "fs";
+import * as path from "path";
 
-const MCP_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/baba_is_eval";
+const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
+const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");
 
 export async function getGameState(): Promise<string> {
-  const transport = new StdioClientTransport({
-    command: "uv",
-    args: ["run", "python", "game_mcp.py"],
-    cwd: MCP_DIR,
-  });
-
-  const client = new Client(
-    {
-      name: "baba-is-agent",
-      version: "1.0.0",
-    },
-    {
-      capabilities: {},
+  const content = fs.readFileSync(STATE_PATH, "utf-8");
+  
+  let levelId = "";
+  let roomSize = { width: 35, height: 20 };
+  
+  for (const line of content.split("\n")) {
+    if (line.startsWith("levelid=")) {
+      levelId = line.split("=")[1].trim();
     }
-  );
-
-  await client.connect(transport);
-  
-  const result = await client.callTool({
-    name: "get_game_state",
-    arguments: {},
-  });
-  
-  await client.close();
-  
-  // @ts-ignore
-  if (result.content && result.content[0] && result.content[0].type === "text") {
-    // @ts-ignore
-    return result.content[0].text;
+    if (line.startsWith("room_size=")) {
+      const [w, h] = line.split("=")[1].split("|").map(Number);
+      roomSize = { width: w, height: h };
+    }
   }
-  return "";
+  
+  const stateMatch = content.match(/^state=(.+)$/m);
+  const grid: string[][] = Array(roomSize.height).fill(null).map(() => Array(roomSize.width).fill(""));
+  
+  if (stateMatch) {
+    const stateData = stateMatch[1];
+    const units = stateData.split("€").filter(u => u);
+    
+    for (const unit of units) {
+      const parts = unit.split("|");
+      if (parts.length >= 21) {
+        const name = parts[1];
+        const x = parseInt(parts[3]);
+        const y = parseInt(parts[4]);
+        
+        if (x >= 0 && x < roomSize.width && y >= 0 && y < roomSize.height) {
+          // Use name directly - text objects already have "text_" prefix in raw data
+          if (grid[y][x]) {
+            grid[y][x] = grid[y][x] + "<" + name;
+          } else {
+            grid[y][x] = name;
+          }
+        }
+      }
+    }
+  }
+  
+  let output = `y/x |`;
+  for (let x = 0; x < roomSize.width; x++) {
+    output += ` ${String(x + 1).padStart(3)} |`;
+  }
+  output += "\n" + "-".repeat(output.length - 1) + "\n";
+  
+  for (let y = 0; y < roomSize.height; y++) {
+    output += `${String(y + 1).padStart(3)} |`;
+    for (let x = 0; x < roomSize.width; x++) {
+      const cell = grid[y][x] || "";
+      output += ` ${cell.padEnd(15).slice(0, 15)} |`;
+    }
+    output += "\n";
+  }
+
+  return output;
 }
 
-// Only run if called directly
-// @ts-ignore
+export async function getRawGameState(): Promise<{ grid: string[][]; width: number; height: number }> {
+  const content = fs.readFileSync(STATE_PATH, "utf-8");
+  
+  let roomSize = { width: 35, height: 20 };
+  
+  for (const line of content.split("\n")) {
+    if (line.startsWith("room_size=")) {
+      const [w, h] = line.split("=")[1].split("|").map(Number);
+      roomSize = { width: w, height: h };
+    }
+  }
+  
+  const stateMatch = content.match(/^state=(.+)$/m);
+  const grid: string[][] = Array(roomSize.height).fill(null).map(() => Array(roomSize.width).fill(""));
+  
+  if (stateMatch) {
+    const stateData = stateMatch[1];
+    const units = stateData.split("€").filter(u => u);
+    
+    for (const unit of units) {
+      const parts = unit.split("|");
+      if (parts.length >= 21) {
+        const name = parts[1];
+        const x = parseInt(parts[3]);
+        const y = parseInt(parts[4]);
+        
+        if (x >= 0 && x < roomSize.width && y >= 0 && y < roomSize.height) {
+          // Use name directly - text objects already have "text_" prefix in raw data
+          if (grid[y][x]) {
+            grid[y][x] = grid[y][x] + "<" + name;
+          } else {
+            grid[y][x] = name;
+          }
+        }
+      }
+    }
+  }
+  
+  return { grid, width: roomSize.width, height: roomSize.height };
+}
+
 if (import.meta.main) {
-  const result = await getGameState();
-  console.log(result);
+  console.log(await getGameState());
 }
