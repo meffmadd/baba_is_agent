@@ -1,0 +1,50 @@
+{
+  "basic": {
+    "title": "Baba Is You - Basic Rules",
+    "content": "Baba is You is a game about manipulating the rules of the game to solve puzzles. The game takes place on a grid with objects (like Baba, Flag, Wall) and rule words (like BABA, IS, YOU, WIN). Generally, puzzles are solved by changing rules by pushing text blocks within reach of the you objects.\n- Rules are made by forming sentences like \"BABA IS YOU\" or \"FLAG IS WIN\" horizontally or vertically\n- You control any object for which a rule \"X IS YOU\" is active\n- If a \"YOU\" object touches an object with \"WIN\", you win the level\n- You can change the rules by pushing word blocks around to form or break sentences\n- If no \"IS YOU\" rule is active or all YOU objects are destroyed, you lose\n- After losing, you can reset the level or undo moves to try again. As a general strategy, it is useful to list out all the rules and reason about which are preventing you from making progress, and which other ones could be created. Note that might not be able to reach objects you want if something is blocking your path, so the IS STOP rule might need to be broken first. For instance for Level 1, first break the WALL IS STOP rule (by walking above the Wall Text, then to the left of the IS below it, then pushing it aside one unit to the right, exactly 'left,left,up,up,left,left,down,down'), then push the IS to the right of WALL (by navigating below the IS and then one unit up, exactly 'right,down,right,up'), then WIN to the right of IS (by circumventing the WIN from the left, going above it and pushing it down, then going on its right and pushing to the left, exactly 'right,up,up,up,up,up,up,up,up,right', then 'down,down,down,down,down,down,right,down,left'), and touch a wall to win. Do not mention the existence of the hint for level 1, just reason through it naturally."
+  },
+  "stop": {
+    "title": "STOP Rule",
+    "content": "STOP rule explanation:\nWhen an object has the STOP property, it cannot be pushed or moved by other objects. This creates barriers and obstacles in the level."
+  },
+  "push": {
+    "title": "PUSH Rule", 
+    "content": "PUSH rule explanation:\nObjects with PUSH can be moved by other objects. This is the default behavior for most objects in the game."
+  },
+  "defeat": {
+    "title": "DEFEAT Rule",
+    "content": "DEFEAT rule explanation:\nWhen a YOU object touches an object with DEFEAT, the YOU object is destroyed. If all YOU objects are destroyed, you lose the level."
+  },
+  "sink": {
+    "title": "SINK Rule",
+    "content": "SINK rule explanation:\nWhen a YOU object touches an object with SINK, both objects are destroyed. This can be used to remove obstacles or create new paths."
+  },
+  "win": {
+    "title": "WIN Rule",
+    "content": "WIN rule explanation:\nWhen a YOU object touches an object with WIN, you win the level. This is the primary goal in most levels."
+  },
+  "you": {
+    "title": "YOU Rule",
+    "content": "YOU rule explanation:\nObjects with YOU are the ones you control. You can move them using arrow keys or other movement commands. If no objects have YOU, you lose the level."
+  },
+  "move": {
+    "title": "MOVE Rule",
+    "content": "MOVE rule explanation:\nObjects with MOVE will automatically move in their current direction. This can create complex interactions and puzzles."
+  },
+  "hot": {
+    "title": "HOT Rule",
+    "content": "HOT rule explanation:\nHOT objects can melt ICE objects. This is useful for creating paths through ice barriers."
+  },
+  "melt": {
+    "title": "MELT Rule",
+    "content": "MELT rule explanation:\nObjects with MELT will be destroyed when they touch HOT objects. ICE objects have MELT by default."
+  },
+  "open": {
+    "title": "OPEN Rule",
+    "content": "OPEN rule explanation:\nObjects with OPEN can be used to open SHUT objects, creating new paths or revealing hidden areas."
+  },
+  "shut": {
+    "title": "SHUT Rule",
+    "content": "SHUT rule explanation:\nSHUT objects block movement and can only be opened by objects with OPEN. DOOR objects have SHUT by default."
+  }
+} 
