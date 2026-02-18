@@ -3,9 +3,9 @@ import { executeCommands, restartLevel, undoMultiple } from "./execute_commands.
 
 export default tool({
   description:
-    "Execute a sequence of Baba Is You commands. Commands should be comma-separated (e.g., 'right,up,down').",
+    "Execute movement and game commands in Baba Is You. Valid commands: 'right', 'up', 'left', 'down' (movement), 'undo' (revert last move), 'restart_instant' (reset level). Commands execute in order.",
   args: {
-    commands: tool.schema.string().describe("Comma-separated list of commands (right, up, left, down, undo, restart_instant)"),
+    commands: tool.schema.string().describe("Comma-separated list of commands to execute. Valid: 'right', 'up', 'left', 'down' (move YOU), 'undo' (revert one move), 'restart_instant' (restart current level). Example: 'right,up,up,left'"),
   },
   async execute(args) {
     return await executeCommands(args.commands);

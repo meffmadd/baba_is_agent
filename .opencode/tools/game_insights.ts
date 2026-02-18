@@ -6,9 +6,9 @@ import type { GameInsights, ManipulableRule } from "./models.js";
 
 export default tool({
   description:
-    "Analyze the current Baba Is You game state. Returns active rules, " +
-    "reachable entities, YOU position, win position, path to win if exists, " +
-    "whether win is possible, and paths to manipulable rule text blocks.",
+    "Analyze the current Baba Is You game state. Returns: active rules (e.g., 'baba IS you'), " +
+    "reachable entities grouped by row, YOU positions, WIN positions, path to win if reachable, " +
+    "and positions of manipulable rule text blocks.",
   args: {},
   async execute(args, context: { directory: string }) {
     const gameState = await getGameState();

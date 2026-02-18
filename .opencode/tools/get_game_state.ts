@@ -6,7 +6,7 @@ import type { GameInsights } from "./models.js";
 
 export default tool({
   description:
-    "Get the current Baba Is You game state as a grid. Returns entities and their positions.",
+    "Get current game state as a text grid showing entity positions. Grid uses coordinates (1,1) at top-left. Multiple entities in same cell shown as 'entity1<entity2'. Text objects prefixed with 'text_' (e.g., 'text_baba').",
   args: {},
   async execute(args) {
     return await getGameState();
