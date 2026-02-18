@@ -107,6 +107,25 @@ export function getStatePositions(
   return getCoordsOfElement(gameState, matchingRules[0]!.entity);
 }
 
+export function getTextBlockPositions(gameState: string): [number, number, string][] {
+  const matrix = parseGameState(gameState);
+  const coords: [number, number, string][] = [];
+
+  for (let y = 0; y < matrix.length; y++) {
+    const row = matrix[y]!;
+    for (let x = 0; x < row.length; x++) {
+      const entity = row[x]!;
+      const entities = entity.split("<");
+      for (const e of entities) {
+        if (e.startsWith("text_")) {
+          coords.push([x + 1, y + 1, e]);
+        }
+      }
+    }
+  }
+  return coords;
+}
+
 export type Direction = "up" | "down" | "left" | "right";
 
 export function applyMove(

@@ -26,10 +26,16 @@ export interface Rule {
   state: string;
 }
 
+export interface ManipulableRule {
+  text: string;
+  position: number[];
+}
+
 export interface GameInsights {
   active_rules: Rule[];
-  reachable_entities: number[][][];
-  you_positions: number[][];
-  win_positions: number[][];
+  reachable_entities: [number, number, string][][];
+  you_positions: [number, number][];
+  win_positions: [number, number][];
   path_to_win: { moves: Direction[]; goal: string } | null;
+  manipulable_rules: ManipulableRule[];
 }
