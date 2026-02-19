@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import * as path from "path";
-import { getRawGameState } from "./utils/get_game_state.js";
 
 const GAME_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/baba_is_eval";
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
@@ -8,6 +7,8 @@ const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");
 const COMMANDS_DIR = path.join(GAME_DIR, "commands");
 
 const VALID_COMMANDS = ["right", "up", "left", "down", "idle", "undo", "restart_instant", "quit"];
+const POLL_INTERVAL_MS = 100;
+const TIMEOUT_MS = 10000;
 
 function getNextCommandFile(): number {
   let k = 0;
@@ -18,6 +19,38 @@ function getNextCommandFile(): number {
     }
     k++;
   }
+}
+
+function getLastProcessed(): number {
+  try {
+    const content = fs.readFileSync(STATE_PATH, "utf-8");
+    for (const line of content.split("\n")) {
+      if (line.startsWith("last_processed=")) {
+        return parseInt(line.split("=")[1].trim(), 10);
+      }
+    }
+  } catch {
+    return -1;
+  }
+  return -1;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForCommandExecution(cmdFileNum: number): Promise<boolean> {
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < TIMEOUT_MS) {
+    const lastProcessed = getLastProcessed();
+    if (lastProcessed >= cmdFileNum) {
+      return true;
+    }
+    await sleep(POLL_INTERVAL_MS);
+  }
+  
+  return false;
 }
 
 export async function executeCommands(commandsStr: string): Promise<string> {
@@ -34,15 +67,11 @@ export async function executeCommands(commandsStr: string): Promise<string> {
   const luaContent = validCmds.map(cmd => `command("${cmd}",1)`).join("\n") + "\n";
   fs.writeFileSync(cmdPath, luaContent);
   
-  const content = fs.readFileSync(STATE_PATH, "utf-8");
-  const lines = content.split("\n");
-  const newLines = lines.map(line => {
-    if (line.startsWith("last_processed=")) {
-      return `last_processed=${cmdFileNum}`;
-    }
-    return line;
-  });
-  fs.writeFileSync(STATE_PATH, newLines.join("\n"));
+  const executed = await waitForCommandExecution(cmdFileNum);
+  
+  if (!executed) {
+    return `Timeout waiting for command ${cmdFileNum} to execute. Game may not be running.`;
+  }
   
   return `Executed: ${validCmds.join(", ")}`;
 }
