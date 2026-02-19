@@ -4,6 +4,7 @@ permission:
   "*": deny
   read: allow
   bash: allow
+  todowrite: allow
   get_game_state: allow
   execute_game_commands: allow
   restart_level: allow
