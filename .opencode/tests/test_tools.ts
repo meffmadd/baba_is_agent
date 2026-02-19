@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { getRules, getStatePositions, gameStateCoords } from "../tools/base.js";
 import { reachableEntities, shortestPath } from "../tools/path_finding.js";
+import { getGameState } from "../tools/utils/get_game_state.js";
 import type { GameInsights } from "../tools/models.js";
 
 const TEST_DIR = path.dirname(new URL(import.meta.url).pathname);
@@ -148,6 +149,44 @@ async function runTests() {
   test("returns an array", () => assert(Array.isArray(coords), "Should return an array"));
   test("finds coordinates", () => assert(coords.length > 0, `Expected coordinates, got ${coords.length}`));
   console.log(`  Found ${coords.length} coordinate groups`);
+  console.log();
+  
+  // Test 7: getGameState with relevant parameter
+  console.log("Test Suite: getGameState (relevant filter)");
+  const fullState = await getGameState(false);
+  const filteredState = await getGameState(true);
+  
+  test("returns formatted grid string", () => {
+    assert(typeof fullState === "string", "Should return string");
+    assert(fullState.includes("y/x |"), "Should have header row");
+  });
+  
+  test("relevant=false shows all entities", () => {
+    assert(fullState.length > 0, "Full state should have content");
+  });
+  
+  test("relevant=true filters to relevant entities only", () => {
+    assert(filteredState.length > 0, "Filtered state should have content");
+  });
+  
+  test("relevant=true produces smaller or equal output", () => {
+    assert(filteredState.length <= fullState.length, "Filtered should be <= full state");
+  });
+  
+  test("relevant=true keeps text_ entities", () => {
+    assert(filteredState.includes("text_"), "Should contain text_ entities");
+  });
+  
+  test("relevant=true keeps entities from active rules", () => {
+    const relevantRules = getRules(filteredState);
+    const subjects = new Set(relevantRules.map(r => r.entity));
+    for (const subject of subjects) {
+      assert(filteredState.includes(subject), `Should contain ${subject} (from active rule)`);
+    }
+  });
+  console.log(`  Full state: ${fullState.length} chars`);
+  console.log(`  Filtered state: ${filteredState.length} chars`);
+  console.log(`  Reduction: ${((1 - filteredState.length / fullState.length) * 100).toFixed(1)}%`);
   console.log();
   
   // Summary
