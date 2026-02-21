@@ -13,16 +13,23 @@ export default tool({
     try {
       const content = fs.readFileSync(STATE_PATH, "utf-8");
       
-      // Parse level_won status
       let levelWon = false;
       let levelId = "";
+      let currentSection = "";
       
       for (const line of content.split("\n")) {
-        if (line.startsWith("level_won=")) {
-          levelWon = line.split("=")[1].trim() === "true";
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine.startsWith("[") && trimmedLine.endsWith("]")) {
+          currentSection = trimmedLine.slice(1, -1);
+          continue;
         }
-        if (line.startsWith("levelid=")) {
-          levelId = line.split("=")[1].trim();
+        
+        if (currentSection === "status" && trimmedLine.startsWith("level_won=")) {
+          levelWon = trimmedLine.split("=")[1].trim() === "true";
+        }
+        if (trimmedLine.startsWith("levelid=")) {
+          levelId = trimmedLine.split("=")[1].trim();
         }
       }
       
