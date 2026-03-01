@@ -1,5 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
+import { getGameState } from "./get_game_state.js";
+import { getRules, getStatePositions } from "../base.js";
 
 const GAME_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/baba_is_eval";
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
@@ -53,7 +55,7 @@ async function waitForCommandExecution(cmdFileNum: number): Promise<boolean> {
   return false;
 }
 
-export async function executeCommands(commandsStr: string): Promise<string> {
+export async function executeCommands(commandsStr: string, returnState: boolean = true): Promise<string> {
   const commands = commandsStr.split(",").map(c => c.trim()).filter(c => c);
   const validCmds = commands.filter(c => VALID_COMMANDS.includes(c));
   
@@ -64,7 +66,12 @@ export async function executeCommands(commandsStr: string): Promise<string> {
   const cmdFileNum = getNextCommandFile();
   const cmdPath = path.join(COMMANDS_DIR, `${cmdFileNum}.lua`);
   
-  const luaContent = validCmds.map(cmd => `command("${cmd}",1)`).join("\n") + "\n";
+  const luaContent = validCmds.map(cmd => {
+    if (cmd === "undo") {
+      return "undo()";
+    }
+    return `command("${cmd}",1)`;
+  }).join("\n") + "\n";
   fs.writeFileSync(cmdPath, luaContent);
   
   const executed = await waitForCommandExecution(cmdFileNum);
@@ -73,16 +80,31 @@ export async function executeCommands(commandsStr: string): Promise<string> {
     return `Timeout waiting for command ${cmdFileNum} to execute. Game may not be running.`;
   }
   
-  return `Executed: ${validCmds.join(", ")}`;
+  if (!returnState) {
+    return `Executed: ${validCmds.join(", ")}`;
+  }
+  
+  const gameState = await getGameState();
+  const rules = getRules(gameState);
+  const youPositions = getStatePositions(gameState, "you");
+  const winPositions = getStatePositions(gameState, "win");
+  
+  const minimalState = {
+    active_rules: rules,
+    you_positions: youPositions,
+    win_positions: winPositions,
+  };
+  
+  return `Executed: ${validCmds.join(", ")}\n\nUpdated game state:\n${JSON.stringify(minimalState)}`;
 }
 
-export async function restartLevel(): Promise<string> {
-  return executeCommands("restart_instant");
+export async function restartLevel(returnState: boolean = true): Promise<string> {
+  return executeCommands("restart_instant", returnState);
 }
 
-export async function undoMultiple(n: number): Promise<string> {
+export async function undoMultiple(n: number, returnState: boolean = true): Promise<string> {
   const undos = Array(Math.min(n, 50)).fill("undo").join(",");
-  return executeCommands(undos);
+  return executeCommands(undos, returnState);
 }
 
 if (import.meta.main) {
