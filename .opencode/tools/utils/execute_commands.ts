@@ -8,7 +8,7 @@ const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steama
 const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");
 const COMMANDS_DIR = path.join(GAME_DIR, "commands");
 
-const VALID_COMMANDS = ["right", "up", "left", "down", "idle", "undo", "restart_instant", "quit"];
+const VALID_COMMANDS = ["right", "up", "left", "down", "idle"];
 const POLL_INTERVAL_MS = 100;
 const TIMEOUT_MS = 10000;
 
