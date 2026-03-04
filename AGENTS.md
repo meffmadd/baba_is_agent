@@ -19,6 +19,10 @@ npx tsx tests/test_tools.ts     # Run tests
 npx tsc --noEmit                # Type check
 ```
 
+## Applying Changes
+
+After modifying tools, commands, or agent configuration, restart the opencode instance for changes to take effect.
+
 ## Tools
 
 All tools fetch game state automatically. Key tools:

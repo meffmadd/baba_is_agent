@@ -2,8 +2,9 @@ import { tool } from "@opencode-ai/plugin";
 import * as fs from "fs";
 import * as path from "path";
 
+const GAME_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/baba_is_eval";
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
-const COMMANDS_DIR = path.join(WORLDS_DIR, "commands");
+const COMMANDS_DIR = path.join(GAME_DIR, "commands");
 const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");
 
 function getNextCommandFile(): string {

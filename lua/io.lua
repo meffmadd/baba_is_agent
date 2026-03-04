@@ -18,6 +18,10 @@ table.insert(mod_hook_functions["level_start"], function()
         end
     end
     local units = MF_getunits()
+    if not units then
+        print("Warning: MF_getunits returned nil")
+        return
+    end
     local state_data = {}
 
     for key, unitid in pairs(units) do
@@ -82,6 +86,10 @@ local function check_and_execute_command_file()
         last_command_key = last_command_key + 1
         -- After executing a command file, update the world state as in level_start
         local units = MF_getunits()
+        if not units then
+            print("Warning: MF_getunits returned nil in check_and_execute_command_file")
+            return
+        end
         local state_data = {}
         for key, unitid in pairs(units) do
             local unit = mmf.newObject(unitid)
