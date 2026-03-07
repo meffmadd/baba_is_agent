@@ -59,7 +59,7 @@ def enter_level(level: int, verbose: bool = False) -> bool:
     """Navigate from overworld to specific level using pyautogui.
 
     Args:
-        level: Level number (1-7)
+        level: Level number (0-7)
         verbose: Enable verbose logging
 
     Returns:
@@ -101,7 +101,7 @@ def enter_level(level: int, verbose: bool = False) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Enter a level from overworld")
-    parser.add_argument("--level", type=int, required=True, help="Level number (1-7)")
+    parser.add_argument("--level", type=int, required=True, help="Level number (0-7)")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 

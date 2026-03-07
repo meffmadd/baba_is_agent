@@ -117,7 +117,7 @@ def evaluate_level(
 
     # Enter target level
     print(f"Entering level {level}...")
-    if not enter_level(int(level), clear_commands=False, verbose=verbose):
+    if not enter_level(int(level), verbose=verbose):
         print("Error: Failed to enter level")
         game_process.terminate()
         return 2
@@ -160,7 +160,7 @@ def main():
         description="Full automation pipeline for Baba Is You solver"
     )
     parser.add_argument(
-        "--level", required=True, help="Level number to solve (e.g., 1, 2, 3)"
+        "--level", required=True, help="Level number to solve (e.g., 0, 1, 2, 3)"
     )
     parser.add_argument(
         "--model",

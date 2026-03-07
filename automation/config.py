@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 # Model defaults
-DEFAULT_MODEL = "openrouter/anthropic/claude-opus-4.6"
+DEFAULT_MODEL = "aqueduct/glm-4.7-355b"
 MODEL_PROVIDERS = ["openrouter", "opencode", "anthropic", "openai", "google"]
 
 # Timing
@@ -51,7 +51,11 @@ COMMANDS_DIR = (
 RESET_TO_LEVEL_0 = ["left", "left", "left", "down", "down", "down", "down", "left"]
 
 # Level navigation sequences (from enter_level tool)
+# From level 0 (RESAT_TO_LEVEL_0 position), apply moves to reach target level, then press Enter
+RESET_TO_LEVEL_0 = ["left", "left", "left", "down", "down", "down", "down", "left"]
+
 LEVEL_MOVES = {
+    0: [],  # Already at level 0 after reset, just press Enter
     1: ["right", "up", "up"],
     2: ["right", "up", "up", "up"],
     3: ["right", "up", "up", "right"],
