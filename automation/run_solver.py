@@ -8,6 +8,8 @@ Usage:
 
 import argparse
 import json
+import os
+import select
 import subprocess
 import sys
 import time
@@ -37,6 +39,48 @@ def sanitize_model_name(model: str) -> str:
     Example: "opencode/glm-5-free" -> "glm-5-free"
     """
     return model.replace("opencode/", "").replace("/", "-")
+
+
+def format_event_console(event: Dict[str, Any]) -> str:
+    """Format an NDJSON event for simplified console output."""
+    event_type = event.get("type", "unknown")
+    part = event.get("part", {})
+
+    if event_type == "step_start":
+        return f"[START] step"
+
+    elif event_type == "tool_use":
+        tool_name = part.get("tool", "unknown")
+        state = part.get("state", {})
+        status = state.get("status", "unknown")
+        status_symbol = (
+            "✓" if status == "completed" else "✗" if status == "error" else "..."
+        )
+        return f"[TOOL] {tool_name} {status_symbol}"
+
+    elif event_type == "text":
+        text = part.get("text", "")
+        if len(text) > 100:
+            text = text[:100] + "..."
+        return f"[TEXT] {text}"
+
+    elif event_type == "step_finish":
+        tokens = part.get("tokens", {})
+        total = tokens.get("total", 0)
+        cost = part.get("cost", 0.0)
+        reason = part.get("reason", "")
+        return f"[DONE] {reason} | tokens: {total:,} | cost: ${cost:.4f}"
+
+    elif event_type == "message_start":
+        return f"[MSG_START]"
+
+    elif event_type == "message_end":
+        return f"[MSG_END]"
+
+    elif event_type == "error":
+        return f"[ERROR] {part.get('text', 'Unknown error')}"
+
+    return f"[{event_type.upper()}]"
 
 
 def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
@@ -80,44 +124,64 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
     won = False
     error = None
 
+    trace_path = results_dir / "trace.jsonl"
+    trace_file = open(trace_path, "w")
+
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=timeout,
             cwd=Path(__file__).parent.parent,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
 
-        # Parse NDJSON output line by line
-        for line in result.stdout.splitlines():
-            if line.strip():
-                try:
-                    event = json.loads(line)
-                    trace_events.append(event)
+        start_time = time.time()
 
-                    # Check for win status in tool_use events
-                    if (
-                        event.get("type") == "tool_use"
-                        and event.get("part", {}).get("tool") == "check_win_status"
-                    ):
-                        output = (
-                            event.get("part", {}).get("state", {}).get("output", "")
-                        )
-                        if output:
-                            try:
-                                win_data = json.loads(output)
-                                won = win_data.get("won", False)
-                            except json.JSONDecodeError:
-                                pass
-                except json.JSONDecodeError:
-                    pass
+        while True:
+            if timeout and (time.time() - start_time) > timeout:
+                process.kill()
+                error = f"Timeout after {timeout} seconds"
+                won = False
+                break
 
-        # Write trace.jsonl
-        trace_path = results_dir / "trace.jsonl"
-        with open(trace_path, "w") as f:
-            for event in trace_events:
-                f.write(json.dumps(event) + "\n")
+            if process.stdout is None:
+                break
+
+            ready, _, _ = select.select([process.stdout], [], [], 1.0)
+
+            if ready:
+                line = process.stdout.readline()
+                if not line:
+                    break
+
+                if line.strip():
+                    try:
+                        event = json.loads(line)
+                        trace_events.append(event)
+
+                        console_output = format_event_console(event)
+                        print(console_output, flush=True)
+
+                        if (
+                            event.get("type") == "tool_use"
+                            and event.get("part", {}).get("tool") == "check_win_status"
+                        ):
+                            output = (
+                                event.get("part", {}).get("state", {}).get("output", "")
+                            )
+                            if output:
+                                try:
+                                    win_data = json.loads(output)
+                                    won = win_data.get("won", False)
+                                except json.JSONDecodeError:
+                                    pass
+                    except json.JSONDecodeError:
+                        pass
+
+            if process.poll() is not None:
+                break
 
     except subprocess.TimeoutExpired:
         error = f"Timeout after {timeout} seconds"
@@ -125,6 +189,8 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
     except Exception as e:
         error = str(e)
         won = False
+    finally:
+        trace_file.close()
 
     timestamp_end = datetime.utcnow().isoformat() + "Z"
 
