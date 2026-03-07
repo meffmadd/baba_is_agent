@@ -31,15 +31,22 @@ export async function getGameInsights(): Promise<GameInsights> {
 
   if (winPositions.length > 0) {
     const directions = ["up", "down", "left", "right"] as const;
+    let shortestMoves: Direction[] | null = null;
+
     for (const lastMove of directions) {
       const path = shortestPath(gameState, winPositions[0]!, lastMove);
       if (path.length > 0) {
-        pathToWin = {
-          moves: path,
-          goal: "Move to Goal",
-        };
-        break;
+        if (shortestMoves === null || path.length < shortestMoves.length) {
+          shortestMoves = path;
+        }
       }
+    }
+
+    if (shortestMoves !== null) {
+      pathToWin = {
+        moves: shortestMoves,
+        goal: "Move to Goal",
+      };
     }
   }
 
