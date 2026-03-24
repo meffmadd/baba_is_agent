@@ -151,10 +151,10 @@ KEY_CODES = {
 
 ## Results
 
-Each run creates a directory: `results/{level}_{model}_{commit_hash}/`
+Each run creates a directory: `results/{model}/level_{level}_{commit_hash}_{timestamp}/`
 
 ```
-results/level_1_glm-5-free_a1b2c3d/
+results/glm-5-free/level_1_a1b2c3d_2026-03-08_12-30-45/
 ├── run.json       # Metadata: level, model, status, tokens, cost
 ├── trace.jsonl    # Full NDJSON trace from opencode
 └── summary.md     # Human-readable summary

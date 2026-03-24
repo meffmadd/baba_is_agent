@@ -5,6 +5,7 @@ Orchestrates: game start -> overworld -> level -> solver -> cleanup.
 
 Usage:
     uv run python -m automation.evaluator --level 1 --model opencode/glm-5-free
+    uv run python -m automation.evaluator --level 0-7 --model opencode/glm-5-free
 """
 
 import argparse
@@ -13,6 +14,7 @@ import time
 import sys
 import shutil
 from pathlib import Path
+from typing import List, Dict, Any
 
 from automation.config import (
     DEFAULT_MODEL,
@@ -29,6 +31,71 @@ from automation.gui_controller import (
 from automation.enter_overworld import enter_overworld
 from automation.enter_level import enter_level
 from automation.run_solver import run_solver
+
+
+def parse_levels(range_str: str) -> List[int]:
+    """Parse level string into list of level numbers.
+
+    Args:
+        range_str: Level spec (e.g., "1" or "0-7")
+
+    Returns:
+        List of level numbers
+
+    Raises:
+        ValueError: Invalid format or bounds
+    """
+    if "-" in range_str:
+        parts = range_str.split("-")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid range format: {range_str}")
+        try:
+            start = int(parts[0])
+            end = int(parts[1])
+        except ValueError:
+            raise ValueError(f"Invalid numbers in range: {range_str}")
+        if start < 0 or end < 0:
+            raise ValueError(f"Level numbers cannot be negative: {range_str}")
+        if start > end:
+            raise ValueError(f"Start level > end level: {range_str}")
+        return list(range(start, end + 1))
+    else:
+        try:
+            level = int(range_str)
+        except ValueError:
+            raise ValueError(f"Invalid level number: {range_str}")
+        if level < 0:
+            raise ValueError(f"Level number cannot be negative: {range_str}")
+        return [level]
+
+
+def print_summary_table(results: List[Dict[str, Any]]):
+    """Print summary table of evaluation results.
+
+    Args:
+        results: List of result dicts with level, status, duration keys
+    """
+    print("\n" + "=" * 50)
+    print("=== Evaluation Summary ===")
+    print("-" * 50)
+
+    print(f"{'Level':<6} | {'Status':<10} | {'Duration':<10}")
+    print("-" * 35)
+
+    for result in results:
+        level = result["level"]
+        status = result["status"]
+        duration = f"{result['duration']:.1f}s"
+        print(f"{level:<6} | {status:<10} | {duration:<10}")
+
+    print("-" * 35)
+
+    won = sum(1 for r in results if r["status"] == "won")
+    timeout = sum(1 for r in results if r["status"] == "timeout")
+    error = sum(1 for r in results if r["exit_code"] in (2, 3))
+
+    print(f"\nTotal: {len(results)} | Won: {won} | Timeout: {timeout} | Error: {error}")
+    print("=" * 50)
 
 
 def start_game():
@@ -67,7 +134,7 @@ def evaluate_level(
     timeout: int = DEFAULT_TIMEOUT,
     no_shutdown: bool = False,
     verbose: bool = False,
-) -> int:
+) -> Dict[str, Any]:
     """Run full automation pipeline for a level.
 
     Args:
@@ -78,7 +145,7 @@ def evaluate_level(
         verbose: Enable verbose logging
 
     Returns:
-        Exit code (0=success, 1=timeout, 2=error, 3=window not found)
+        Dict with status, exit_code, duration, results_dir, level
     """
     set_verbose(verbose)
 
@@ -99,7 +166,13 @@ def evaluate_level(
     if not wait_for_window(WINDOW_WAIT_TIMEOUT):
         print("Error: Game window not found")
         game_process.terminate()
-        return 3
+        return {
+            "level": int(level),
+            "status": "window_not_found",
+            "exit_code": 3,
+            "duration": 0,
+            "results_dir": None,
+        }
 
     # Give game time to fully initialize - splash screen needs to be ready
     print("Game window detected, waiting 5s for initialization...")
@@ -110,7 +183,13 @@ def evaluate_level(
     if not enter_overworld(verbose=verbose):
         print("Error: Failed to enter overworld")
         game_process.terminate()
-        return 2
+        return {
+            "level": int(level),
+            "status": "error",
+            "exit_code": 2,
+            "duration": 0,
+            "results_dir": None,
+        }
 
     # Wait for overworld to fully load
     time.sleep(2)
@@ -120,7 +199,13 @@ def evaluate_level(
     if not enter_level(int(level), verbose=verbose):
         print("Error: Failed to enter level")
         game_process.terminate()
-        return 2
+        return {
+            "level": int(level),
+            "status": "error",
+            "exit_code": 2,
+            "duration": 0,
+            "results_dir": None,
+        }
 
     # Wait for level to load
     time.sleep(2)
@@ -147,12 +232,21 @@ def evaluate_level(
     print(f"Duration: {solver_result['duration']}")
     print(f"Results: {solver_result['results_dir']}")
 
+    exit_code = 0
     if solver_result["status"] == "won":
-        return 0
+        exit_code = 0
     elif solver_result["status"] == "timeout":
-        return 1
+        exit_code = 1
     else:
-        return 2
+        exit_code = 2
+
+    return {
+        "level": int(level),
+        "status": solver_result["status"],
+        "exit_code": exit_code,
+        "duration": solver_result["duration"],
+        "results_dir": solver_result["results_dir"],
+    }
 
 
 def main():
@@ -160,7 +254,7 @@ def main():
         description="Full automation pipeline for Baba Is You solver"
     )
     parser.add_argument(
-        "--level", required=True, help="Level number to solve (e.g., 0, 1, 2, 3)"
+        "--level", required=True, help="Level number or range (e.g., 1 or 0-7)"
     )
     parser.add_argument(
         "--model",
@@ -186,15 +280,41 @@ def main():
 
     args = parser.parse_args()
 
-    exit_code = evaluate_level(
-        level=args.level,
-        model=args.model,
-        timeout=args.timeout,
-        no_shutdown=args.no_shutdown,
-        verbose=args.verbose,
-    )
+    try:
+        levels = parse_levels(args.level)
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
-    sys.exit(exit_code)
+    results = []
+    all_won = True
+
+    for level in levels:
+        result = evaluate_level(
+            level=str(level),
+            model=args.model,
+            timeout=args.timeout,
+            no_shutdown=args.no_shutdown,
+            verbose=args.verbose,
+        )
+        results.append(result)
+
+        # Stop on error or window failure
+        if result["exit_code"] in (2, 3):
+            print(f"\nFatal error at level {level}, stopping evaluation")
+            all_won = False
+            break
+
+        # Mark not all won if timeout or error
+        if result["exit_code"] != 0:
+            all_won = False
+
+    # Print summary table for multiple levels
+    if len(levels) > 1:
+        print_summary_table(results)
+
+    # Exit code: 0 if all won, 1 otherwise
+    sys.exit(0 if all_won else 1)
 
 
 if __name__ == "__main__":

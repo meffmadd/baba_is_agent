@@ -96,10 +96,12 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
     """
     commit_hash = get_commit_hash()
     model_sanitized = sanitize_model_name(model)
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     results_dir = (
         Path(__file__).parent
         / "results"
-        / f"level_{level}_{model_sanitized}_{commit_hash}"
+        / model_sanitized
+        / f"level_{level}_{commit_hash}_{timestamp}"
     )
     results_dir.mkdir(parents=True, exist_ok=True)
 
