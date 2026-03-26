@@ -151,8 +151,8 @@ async function runTests() {
   console.log(`  Found ${coords.length} coordinate groups`);
   console.log();
   
-  // Test 7: getGameState with relevant parameter
-  console.log("Test Suite: getGameState (relevant filter)");
+  // Test 7: getGameState with active_only parameter
+  console.log("Test Suite: getGameState (active_only filter)");
   const fullState = await getGameState(false);
   const filteredState = await getGameState(true);
   
@@ -161,25 +161,25 @@ async function runTests() {
     assert(fullState.includes("y/x |"), "Should have header row");
   });
   
-  test("relevant=false shows all entities", () => {
+  test("active_only=false shows all entities", () => {
     assert(fullState.length > 0, "Full state should have content");
   });
   
-  test("relevant=true filters to relevant entities only", () => {
+  test("active_only=true filters to active entities only", () => {
     assert(filteredState.length > 0, "Filtered state should have content");
   });
   
-  test("relevant=true produces smaller or equal output", () => {
+  test("active_only=true produces smaller or equal output", () => {
     assert(filteredState.length <= fullState.length, "Filtered should be <= full state");
   });
   
-  test("relevant=true keeps text_ entities", () => {
+  test("active_only=true keeps text_ entities", () => {
     assert(filteredState.includes("text_"), "Should contain text_ entities");
   });
   
-  test("relevant=true keeps entities from active rules", () => {
-    const relevantRules = getRules(filteredState);
-    const subjects = new Set(relevantRules.map(r => r.entity));
+  test("active_only=true keeps entities from active rules", () => {
+    const activeRules = getRules(filteredState);
+    const subjects = new Set(activeRules.map(r => r.entity));
     for (const subject of subjects) {
       assert(filteredState.includes(subject), `Should contain ${subject} (from active rule)`);
     }

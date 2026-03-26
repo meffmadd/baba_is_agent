@@ -5,16 +5,16 @@ import { executeCommands } from "../tools/utils/execute_commands.js";
 
 async function printGameState() {
   console.log("=".repeat(80));
-  console.log("GAME STATE (relevant=true)");
+  console.log("GAME STATE (active_only=true)");
   console.log("=".repeat(80));
   console.log();
   
-  const relevantState = await getGameState(true);
-  console.log(relevantState);
+  const activeState = await getGameState(true);
+  console.log(activeState);
   console.log();
   
   console.log("=".repeat(80));
-  console.log("GAME STATE (relevant=false)");
+  console.log("GAME STATE (active_only=false)");
   console.log("=".repeat(80));
   console.log();
   

@@ -8,9 +8,9 @@ export default tool({
   description:
     "Get current game state as a text grid showing entity positions. Grid uses coordinates (1,1) at top-left. Multiple entities in same cell shown as 'entity1<entity2'. Text objects prefixed with 'text_' (e.g., 'text_baba').",
   args: {
-    relevant: tool.schema.boolean().default(true).describe("Filter to show only entities with active rules (text_ entities always shown)")
+    active_only: tool.schema.boolean().default(false).describe("When true, show only entities with active rules (e.g., 'baba' with YOU, 'wall' with STOP). When false, show all entities including those without active rules.")
   },
-  async execute(args: { relevant: boolean }) {
-    return await getGameState(args.relevant);
+  async execute(args: { active_only: boolean }) {
+    return await getGameState(args.active_only);
   },
 });

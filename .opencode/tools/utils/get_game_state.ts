@@ -37,7 +37,7 @@ function buildFormattedOutput(grid: string[][], width: number, height: number): 
   return output;
 }
 
-export async function getGameState(relevantOnly: boolean = true): Promise<string> {
+export async function getGameState(active_only: boolean = false): Promise<string> {
   const content = fs.readFileSync(STATE_PATH, "utf-8");
   
   let levelId = "";
@@ -80,7 +80,7 @@ export async function getGameState(relevantOnly: boolean = true): Promise<string
 
   let finalGrid = grid;
   
-  if (relevantOnly) {
+  if (active_only) {
     const tempOutput = buildFormattedOutput(grid, roomSize.width, roomSize.height);
     const rules = getRules(tempOutput);
     const relevantSubjects = new Set(rules.map(r => r.entity));
