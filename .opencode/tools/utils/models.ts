@@ -6,19 +6,23 @@ export interface Position {
   last_move: Direction;
 }
 
+export interface GameMoves {
+  moves: Position[];
+  goal: string;
+}
+
+export interface AugmentedGameMoves {
+  moves: Position[];
+  goal: string;
+  is_valid: boolean;
+}
+
 export interface MoveOptions {
-  options: {
-    moves: Position[];
-    goal: string;
-  }[];
+  options: GameMoves[];
 }
 
 export interface AugmentedMoveOptions {
-  options: {
-    moves: Position[];
-    goal: string;
-    is_valid: boolean;
-  }[];
+  options: AugmentedGameMoves[];
 }
 
 export interface Rule {

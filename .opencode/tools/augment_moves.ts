@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { getGameState } from "./utils/get_game_state.js";
-import { augmentGameMoves } from "./augment.js";
+import { augmentGameMoves } from "./utils/augment.js";
 
 export default tool({
   description: "Validate whether a sequence of proposed moves can actually be executed. Checks if each intermediate position is reachable from the current YOU position. Returns the moves with is_valid flag set to true/false.",

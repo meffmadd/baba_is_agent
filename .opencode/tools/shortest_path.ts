@@ -1,7 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 import { getGameState } from "./utils/get_game_state.js";
-import { type Direction } from "./base.js";
-import { shortestPath as tsShortestPath } from "./path_finding.js";
+import { type Direction } from "./utils/base.js";
+import { shortestPath as tsShortestPath } from "./utils/path_finding.js";
 
 export default tool({
   description: "Find shortest path from YOU to target position using A* pathfinding",

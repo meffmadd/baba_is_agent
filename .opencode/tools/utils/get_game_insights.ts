@@ -1,7 +1,7 @@
 import { getGameState } from "./get_game_state.js";
-import { getRules, getStatePositions, getTextBlockPositions, type Direction } from "../base.js";
-import { reachableEntities, shortestPath } from "../path_finding.js";
-import type { GameInsights, ManipulableRule } from "../models.js";
+import { getRules, getStatePositions, getTextBlockPositions, type Direction } from "./base.js";
+import { reachableEntities, shortestPath } from "./path_finding.js";
+import type { GameInsights, ManipulableRule } from "./models.js";
 
 export async function getGameInsights(): Promise<GameInsights> {
   const gameState = await getGameState();

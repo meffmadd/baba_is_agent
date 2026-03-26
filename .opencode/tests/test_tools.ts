@@ -1,10 +1,10 @@
 // Test all tools against captured game state
 import * as fs from "fs";
 import * as path from "path";
-import { getRules, getStatePositions, gameStateCoords } from "../tools/base.js";
-import { reachableEntities, shortestPath } from "../tools/path_finding.js";
+import { getRules, getStatePositions, gameStateCoords } from "../tools/utils/base.js";
+import { reachableEntities, shortestPath } from "../tools/utils/path_finding.js";
 import { getGameState } from "../tools/utils/get_game_state.js";
-import type { GameInsights } from "../tools/models.js";
+import type { GameInsights } from "../tools/utils/models.js";
 
 const TEST_DIR = path.dirname(new URL(import.meta.url).pathname);
 const FIXTURES_DIR = path.join(TEST_DIR, "fixtures");
@@ -57,8 +57,8 @@ async function runTests() {
   test("finds active rules", () => assert(rules.length > 0, `Expected rules, got ${rules.length}`));
   test("rules have entity and state", () => {
     for (const rule of rules) {
-      assert(rule.entity && typeof rule.entity === "string", "Rule should have entity string");
-      assert(rule.state && typeof rule.state === "string", "Rule should have state string");
+      assert(typeof rule.entity === "string" && rule.entity.length > 0, "Rule should have entity string");
+      assert(typeof rule.state === "string" && rule.state.length > 0, "Rule should have state string");
     }
   });
   console.log(`  Found ${rules.length} rules:`, rules.map(r => `${r.entity} IS ${r.state}`).join(", "));

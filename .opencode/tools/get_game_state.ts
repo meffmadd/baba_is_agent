@@ -1,8 +1,8 @@
 import { tool } from "@opencode-ai/plugin";
 import { getGameState, getRawGameState } from "./utils/get_game_state.js";
-import { getRules, getStatePositions } from "./base.js";
-import { reachableEntities, shortestPath } from "./path_finding.js";
-import type { GameInsights } from "./models.js";
+import { getRules, getStatePositions } from "./utils/base.js";
+import { reachableEntities, shortestPath } from "./utils/path_finding.js";
+import type { GameInsights } from "./utils/models.js";
 
 export default tool({
   description:

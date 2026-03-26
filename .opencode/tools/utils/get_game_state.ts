@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { getRules } from "../base.js";
+import { getRules } from "./base.js";
 
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
 const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");

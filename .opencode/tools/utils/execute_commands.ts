@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { getGameState } from "./get_game_state.js";
-import { getRules, getStatePositions } from "../base.js";
+import { getRules, getStatePositions } from "./base.js";
 
 const GAME_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/baba_is_eval";
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
@@ -99,12 +99,54 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
 }
 
 export async function restartLevel(returnState: boolean = true): Promise<string> {
-  return executeCommands("restart_instant", returnState);
+  const cmdFileNum = getNextCommandFile();
+  const cmdPath = path.join(COMMANDS_DIR, `${cmdFileNum}.lua`);
+  fs.writeFileSync(cmdPath, `command("restart_instant", 1)\n`);
+  const executed = await waitForCommandExecution(cmdFileNum);
+  if (!executed) {
+    return `Timeout waiting for restart command ${cmdFileNum} to execute.`;
+  }
+  if (!returnState) {
+    return "Level restarted";
+  }
+  const gameState = await getGameState();
+  const rules = getRules(gameState);
+  const youPositions = getStatePositions(gameState, "you");
+  const winPositions = getStatePositions(gameState, "win");
+  const minimalState = {
+    active_rules: rules,
+    you_positions: youPositions,
+    win_positions: winPositions,
+  };
+  return `Level restarted\n\nUpdated game state:\n${JSON.stringify(minimalState)}`;
 }
 
 export async function undoMultiple(n: number, returnState: boolean = true): Promise<string> {
-  const undos = Array(Math.min(n, 50)).fill("undo").join(",");
-  return executeCommands(undos, returnState);
+  const numUndos = Math.min(n, 50);
+  const cmdFileNum = getNextCommandFile();
+  const cmdPath = path.join(COMMANDS_DIR, `${cmdFileNum}.lua`);
+  let luaContent = "";
+  for (let i = 0; i < numUndos; i++) {
+    luaContent += "undo()\n";
+  }
+  fs.writeFileSync(cmdPath, luaContent);
+  const executed = await waitForCommandExecution(cmdFileNum);
+  if (!executed) {
+    return `Timeout waiting for undo command ${cmdFileNum} to execute.`;
+  }
+  if (!returnState) {
+    return `Undid ${numUndos} moves`;
+  }
+  const gameState = await getGameState();
+  const rules = getRules(gameState);
+  const youPositions = getStatePositions(gameState, "you");
+  const winPositions = getStatePositions(gameState, "win");
+  const minimalState = {
+    active_rules: rules,
+    you_positions: youPositions,
+    win_positions: winPositions,
+  };
+  return `Undid ${numUndos} moves\n\nUpdated game state:\n${JSON.stringify(minimalState)}`;
 }
 
 if (import.meta.main) {
