@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { getRules } from "./base.js";
+import type { GameStateData } from "./models.js";
 
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
 const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");
@@ -37,16 +38,12 @@ function buildFormattedOutput(grid: string[][], width: number, height: number): 
   return output;
 }
 
-export async function getGameState(active_only: boolean = false): Promise<string> {
+function parseGameStateGrid(active_only: boolean = false): { grid: string[][]; width: number; height: number } {
   const content = fs.readFileSync(STATE_PATH, "utf-8");
   
-  let levelId = "";
   let roomSize = { width: 35, height: 20 };
   
   for (const line of content.split("\n")) {
-    if (line.startsWith("levelid=")) {
-      levelId = line.split("=")[1].trim();
-    }
     if (line.startsWith("room_size=")) {
       const [w, h] = line.split("=")[1].split("|").map(Number);
       roomSize = { width: w, height: h };
@@ -78,16 +75,44 @@ export async function getGameState(active_only: boolean = false): Promise<string
     }
   }
 
-  let finalGrid = grid;
-  
   if (active_only) {
     const tempOutput = buildFormattedOutput(grid, roomSize.width, roomSize.height);
     const rules = getRules(tempOutput);
     const relevantSubjects = new Set(rules.map(r => r.entity));
-    finalGrid = filterGridByRelevance(grid, relevantSubjects);
+    return { grid: filterGridByRelevance(grid, relevantSubjects), width: roomSize.width, height: roomSize.height };
   }
   
-  return buildFormattedOutput(finalGrid, roomSize.width, roomSize.height);
+  return { grid, width: roomSize.width, height: roomSize.height };
+}
+
+export async function getGameState(active_only: boolean = false): Promise<string> {
+  const { grid, width, height } = parseGameStateGrid(active_only);
+  return buildFormattedOutput(grid, width, height);
+}
+
+export async function getGameStateAsJson(active_only: boolean = false): Promise<GameStateData> {
+  const { grid, width, height } = parseGameStateGrid(active_only);
+  
+  const entities: { type: string; x: number; y: number }[] = [];
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const cell = grid[y][x];
+      if (cell) {
+        const cellEntities = cell.split("<");
+        for (const entity of cellEntities) {
+          entities.push({ type: entity, x: x + 1, y: y + 1 });
+        }
+      }
+    }
+  }
+  
+  return {
+    grid: {
+      dimensions: { width, height },
+      entities
+    }
+  };
 }
 
 export async function getRawGameState(): Promise<{ grid: string[][]; width: number; height: number }> {

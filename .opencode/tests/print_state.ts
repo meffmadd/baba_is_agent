@@ -1,25 +1,34 @@
 // Print game state and insights for debugging
-import { getGameState } from "../tools/utils/get_game_state.js";
+import { getGameState, getGameStateAsJson } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
 import { executeCommands } from "../tools/utils/execute_commands.js";
 
 async function printGameState() {
   console.log("=".repeat(80));
-  console.log("GAME STATE (active_only=true)");
+  console.log("GAME STATE - MARKDOWN FORMAT (active_only=true)");
   console.log("=".repeat(80));
   console.log();
-  
+
   const activeState = await getGameState(true);
   console.log(activeState);
   console.log();
-  
+
   console.log("=".repeat(80));
-  console.log("GAME STATE (active_only=false)");
+  console.log("GAME STATE - MARKDOWN FORMAT (active_only=false)");
   console.log("=".repeat(80));
   console.log();
-  
+
   const fullState = await getGameState(false);
   console.log(fullState);
+  console.log();
+
+  console.log("=".repeat(80));
+  console.log("GAME STATE - JSON FORMAT (active_only=false)");
+  console.log("=".repeat(80));
+  console.log();
+
+  const jsonState = await getGameStateAsJson(false);
+  console.log(JSON.stringify(jsonState, null, 2));
   console.log();
 }
 

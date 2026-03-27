@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { undoMultiple } from "./utils/execute_commands.js";
+import type { ToolResponse } from "./utils/models.js";
 
 export default tool({
   description:
@@ -10,7 +11,12 @@ export default tool({
   },
   async execute(args: { n: number; return_state: boolean }) {
     if (args.n <= 0) {
-      return "Error: Number of undos must be positive";
+      const errorResponse: ToolResponse<null> = {
+        success: false,
+        data: null,
+        message: "Error: Number of undos must be positive"
+      };
+      return JSON.stringify(errorResponse);
     }
     return await undoMultiple(args.n, args.return_state);
   },

@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { getGameInsights } from "./utils/get_game_insights.js";
+import type { ToolResponse, GameInsights } from "./utils/models.js";
 
 export default tool({
   description:
@@ -9,6 +10,11 @@ export default tool({
   args: {},
   async execute(args, context: { directory: string }) {
     const result = await getGameInsights();
-    return JSON.stringify(result);
+    const response: ToolResponse<GameInsights> = {
+      success: true,
+      data: result,
+      message: "Game state analyzed"
+    };
+    return JSON.stringify(response);
   },
 });

@@ -2,6 +2,7 @@ import { tool } from "@opencode-ai/plugin";
 import { getGameState } from "./utils/get_game_state.js";
 import { type Direction } from "./utils/base.js";
 import { shortestPath as tsShortestPath } from "./utils/path_finding.js";
+import type { ToolResponse, ShortestPathData } from "./utils/models.js";
 
 export default tool({
   description: "Find shortest path from YOU to target position using A* pathfinding",
@@ -13,7 +14,12 @@ export default tool({
   async execute(args) {
     const validDirections: Direction[] = ["up", "down", "left", "right"];
     if (!validDirections.includes(args.last_move as Direction)) {
-      throw new Error(`last_move must be one of: up, down, left, right`);
+      const errorResponse: ToolResponse<null> = {
+        success: false,
+        data: null,
+        message: `last_move must be one of: up, down, left, right`
+      };
+      return JSON.stringify(errorResponse);
     }
     const gameState = await getGameState();
     const path = tsShortestPath(
@@ -21,6 +27,18 @@ export default tool({
       [args.target_x, args.target_y],
       args.last_move as Direction
     );
-    return JSON.stringify({ path });
+
+    const data: ShortestPathData = { path };
+    const message = path.length > 0
+      ? `Path found (${path.length} steps)`
+      : "No path available";
+
+    const response: ToolResponse<ShortestPathData> = {
+      success: path.length > 0,
+      data,
+      message
+    };
+
+    return JSON.stringify(response);
   },
 });

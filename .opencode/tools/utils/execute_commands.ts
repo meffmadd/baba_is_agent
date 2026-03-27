@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { getGameState } from "./get_game_state.js";
 import { getRules, getStatePositions } from "./base.js";
+import type { ToolResponse, CommandExecutionData, LevelControlData } from "./models.js";
 
 const GAME_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/baba_is_eval";
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
@@ -67,7 +68,12 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
   const validCmds = commands.filter(c => VALID_COMMANDS.includes(c));
   
   if (validCmds.length === 0) {
-    return `No valid commands. Valid: ${VALID_COMMANDS.join(", ")}`;
+    const errorResponse: ToolResponse<null> = {
+      success: false,
+      data: null,
+      message: `No valid commands. Valid: ${VALID_COMMANDS.join(", ")}`
+    };
+    return JSON.stringify(errorResponse);
   }
   
   const cmdFileNum = getNextCommandFile();
@@ -90,19 +96,35 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
       const gameState = await getGameState();
       const rules = getRules(gameState);
       const youPositions = getStatePositions(gameState, "you");
-      const minimalState = {
+      const data: CommandExecutionData = {
+        executed: validCmds,
         active_rules: rules,
         you_positions: youPositions,
-        partial: true,
+        win_positions: []
       };
-      return `Partial execution. Commands may have partially executed.\nCurrent state:\n${JSON.stringify(minimalState)}`;
+      const response: ToolResponse<CommandExecutionData> = {
+        success: false,
+        data,
+        message: `Partial execution. Commands may have partially executed.`
+      };
+      return JSON.stringify(response);
     } catch {
-      return `Failed to execute command ${cmdFileNum}. Game may not be running.`;
+      const errorResponse: ToolResponse<null> = {
+        success: false,
+        data: null,
+        message: `Failed to execute command ${cmdFileNum}. Game may not be running.`
+      };
+      return JSON.stringify(errorResponse);
     }
   }
   
   if (!returnState) {
-    return `Executed: ${validCmds.join(", ")}`;
+    const response: ToolResponse<{ executed: string[] }> = {
+      success: true,
+      data: { executed: validCmds },
+      message: `Executed ${validCmds.length} command(s)`
+    };
+    return JSON.stringify(response);
   }
   
   const gameState = await getGameState();
@@ -110,45 +132,72 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
   const youPositions = getStatePositions(gameState, "you");
   const winPositions = getStatePositions(gameState, "win");
   
-  const minimalState = {
+  const data: CommandExecutionData = {
+    executed: validCmds,
     active_rules: rules,
     you_positions: youPositions,
     win_positions: winPositions,
   };
   
-  return `Executed: ${validCmds.join(", ")}\n\nUpdated game state:\n${JSON.stringify(minimalState)}`;
+  const response: ToolResponse<CommandExecutionData> = {
+    success: true,
+    data,
+    message: `Executed ${validCmds.length} command(s)`
+  };
+  
+  return JSON.stringify(response);
 }
 
 export async function restartLevel(returnState: boolean = true): Promise<string> {
   const cmdFileNum = getNextCommandFile();
   const cmdPath = path.join(COMMANDS_DIR, `${cmdFileNum}.lua`);
   fs.writeFileSync(cmdPath, `command("restart_instant", 1)\n`);
-  
+
   // Wait for restart command to execute (last_processed counter resets on restart, so we just wait)
   await sleep(500);
-  
+
   // Verify game is responding by reading state
   try {
     const gameState = await getGameState();
     if (gameState.length === 0) {
-      return `Failed to execute restart command ${cmdFileNum}. Game state empty.`;
+      const errorResponse: ToolResponse<null> = {
+        success: false,
+        data: null,
+        message: `Failed to execute restart command ${cmdFileNum}. Game state empty.`
+      };
+      return JSON.stringify(errorResponse);
     }
-    
+
     if (!returnState) {
-      return "Level restarted";
+      const response: ToolResponse<null> = {
+        success: true,
+        data: null,
+        message: "Level restarted successfully"
+      };
+      return JSON.stringify(response);
     }
-    
+
     const rules = getRules(gameState);
     const youPositions = getStatePositions(gameState, "you");
     const winPositions = getStatePositions(gameState, "win");
-    const minimalState = {
+    const data: LevelControlData = {
       active_rules: rules,
       you_positions: youPositions,
       win_positions: winPositions,
     };
-    return `Level restarted\n\nUpdated game state:\n${JSON.stringify(minimalState)}`;
+    const response: ToolResponse<LevelControlData> = {
+      success: true,
+      data,
+      message: "Level restarted successfully"
+    };
+    return JSON.stringify(response);
   } catch {
-    return `Failed to execute restart command ${cmdFileNum}. Game may not be running.`;
+    const errorResponse: ToolResponse<null> = {
+      success: false,
+      data: null,
+      message: `Failed to execute restart command ${cmdFileNum}. Game may not be running.`
+    };
+    return JSON.stringify(errorResponse);
   }
 }
 
@@ -161,32 +210,52 @@ export async function undoMultiple(n: number, returnState: boolean = true): Prom
     luaContent += "undo()\n";
   }
   fs.writeFileSync(cmdPath, luaContent);
-  
+
   // Wait for undo command to execute
   await sleep(500);
-  
+
   // Verify game is responding by reading state
   try {
     const gameState = await getGameState();
     if (gameState.length === 0) {
-      return `Failed to execute undo command ${cmdFileNum}. Game state empty.`;
+      const errorResponse: ToolResponse<null> = {
+        success: false,
+        data: null,
+        message: `Failed to execute undo command ${cmdFileNum}. Game state empty.`
+      };
+      return JSON.stringify(errorResponse);
     }
-    
+
     if (!returnState) {
-      return `Undid ${numUndos} moves`;
+      const response: ToolResponse<{ undos: number }> = {
+        success: true,
+        data: { undos: numUndos },
+        message: `Undid ${numUndos} moves`
+      };
+      return JSON.stringify(response);
     }
-    
+
     const rules = getRules(gameState);
     const youPositions = getStatePositions(gameState, "you");
     const winPositions = getStatePositions(gameState, "win");
-    const minimalState = {
+    const data: LevelControlData = {
       active_rules: rules,
       you_positions: youPositions,
       win_positions: winPositions,
     };
-    return `Undid ${numUndos} moves\n\nUpdated game state:\n${JSON.stringify(minimalState)}`;
+    const response: ToolResponse<LevelControlData> = {
+      success: true,
+      data,
+      message: `Undid ${numUndos} moves`
+    };
+    return JSON.stringify(response);
   } catch {
-    return `Failed to execute undo command ${cmdFileNum}. Game may not be running.`;
+    const errorResponse: ToolResponse<null> = {
+      success: false,
+      data: null,
+      message: `Failed to execute undo command ${cmdFileNum}. Game may not be running.`
+    };
+    return JSON.stringify(errorResponse);
   }
 }
 
