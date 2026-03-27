@@ -89,3 +89,43 @@ export interface LevelControlData {
   you_positions: [number, number][];
   win_positions: [number, number][];
 }
+
+// Position change tracking
+export interface PositionMoved {
+  entity: string;
+  from: [number, number];
+  to: [number, number];
+}
+
+export interface PositionCreated {
+  entity: string;
+  at: [number, number];
+}
+
+export interface PositionDestroyed {
+  entity: string;
+  at: [number, number];
+}
+
+export interface PositionChanges {
+  moved: PositionMoved[];
+  created: PositionCreated[];
+  destroyed: PositionDestroyed[];
+}
+
+// Rule change tracking
+export interface RuleChanges {
+  added: string[];
+  removed: string[];
+}
+
+// Diff structure
+export interface StateDiff {
+  positions: PositionChanges;
+  rules: RuleChanges;
+}
+
+// Command Execution Data Structure with Diff
+export interface CommandExecutionDataWithDiff extends CommandExecutionData {
+  diff: StateDiff;
+}

@@ -1,8 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
-import { getGameState } from "./get_game_state.js";
+import { getGameState, getRawGameState } from "./get_game_state.js";
 import { getRules, getStatePositions } from "./base.js";
-import type { ToolResponse, CommandExecutionData, LevelControlData } from "./models.js";
+import type { ToolResponse, CommandExecutionData, LevelControlData, StateDiff, PositionChanges, RuleChanges } from "./models.js";
+import type { Rule } from "./models.js";
 
 const GAME_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/baba_is_eval";
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
@@ -13,6 +14,147 @@ const VALID_COMMANDS = ["right", "up", "left", "down", "idle"];
 const POLL_INTERVAL_MS = 100;
 const TIMEOUT_MS = 10000;
 const RETRY_DELAY_MS = 100;
+
+// Helper type for entity positions
+export interface EntityPosition {
+  entity: string;
+  x: number;
+  y: number;
+}
+
+// Extract all entity positions from grid
+export function extractEntityPositions(grid: string[][]): EntityPosition[] {
+  const positions: EntityPosition[] = [];
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      const cell = grid[y][x];
+      if (cell) {
+        const entities = cell.split("<");
+        for (const entity of entities) {
+          positions.push({ entity, x: x + 1, y: y + 1 });
+        }
+      }
+    }
+  }
+  return positions;
+}
+
+// Calculate diff between two game states
+export function calculateStateDiff(
+  beforeGrid: string[][],
+  afterGrid: string[][],
+  beforeRules: Rule[],
+  afterRules: Rule[]
+): StateDiff {
+  const beforePositions = extractEntityPositions(beforeGrid);
+  const afterPositions = extractEntityPositions(afterGrid);
+
+  // Create maps for easier lookup
+  const beforeMap = new Map<string, EntityPosition[]>();
+  const afterMap = new Map<string, EntityPosition[]>();
+
+  for (const pos of beforePositions) {
+    if (!beforeMap.has(pos.entity)) {
+      beforeMap.set(pos.entity, []);
+    }
+    beforeMap.get(pos.entity)!.push(pos);
+  }
+
+  for (const pos of afterPositions) {
+    if (!afterMap.has(pos.entity)) {
+      afterMap.set(pos.entity, []);
+    }
+    afterMap.get(pos.entity)!.push(pos);
+  }
+
+  const moved: { entity: string; from: [number, number]; to: [number, number] }[] = [];
+  const created: { entity: string; at: [number, number] }[] = [];
+  const destroyed: { entity: string; at: [number, number] }[] = [];
+
+  // All unique entities
+  const allEntities = new Set([...beforeMap.keys(), ...afterMap.keys()]);
+
+  for (const entity of allEntities) {
+    const beforeList = beforeMap.get(entity) || [];
+    const afterList = afterMap.get(entity) || [];
+
+    // Match positions to find moves
+    const matchedBefore = new Set<number>();
+    const matchedAfter = new Set<number>();
+
+    // Find exact matches (no change)
+    for (let i = 0; i < beforeList.length; i++) {
+      for (let j = 0; j < afterList.length; j++) {
+        if (matchedBefore.has(i) || matchedAfter.has(j)) continue;
+        if (beforeList[i].x === afterList[j].x && beforeList[i].y === afterList[j].y) {
+          matchedBefore.add(i);
+          matchedAfter.add(j);
+        }
+      }
+    }
+
+    // Find moves (same entity, different position)
+    for (let i = 0; i < beforeList.length; i++) {
+      if (matchedBefore.has(i)) continue;
+      for (let j = 0; j < afterList.length; j++) {
+        if (matchedAfter.has(j)) continue;
+        // Consider it a move if positions are different
+        moved.push({
+          entity,
+          from: [beforeList[i].x, beforeList[i].y],
+          to: [afterList[j].x, afterList[j].y]
+        });
+        matchedBefore.add(i);
+        matchedAfter.add(j);
+        break;
+      }
+    }
+
+    // Remaining before positions are destroyed
+    for (let i = 0; i < beforeList.length; i++) {
+      if (!matchedBefore.has(i)) {
+        destroyed.push({
+          entity,
+          at: [beforeList[i].x, beforeList[i].y]
+        });
+      }
+    }
+
+    // Remaining after positions are created
+    for (let j = 0; j < afterList.length; j++) {
+      if (!matchedAfter.has(j)) {
+        created.push({
+          entity,
+          at: [afterList[j].x, afterList[j].y]
+        });
+      }
+    }
+  }
+
+  // Calculate rule changes
+  const beforeRuleSet = new Set(beforeRules.map(r => `${r.entity} IS ${r.state}`));
+  const afterRuleSet = new Set(afterRules.map(r => `${r.entity} IS ${r.state}`));
+
+  const added: string[] = [];
+  const removed: string[] = [];
+
+  for (const rule of afterRuleSet) {
+    if (!beforeRuleSet.has(rule)) {
+      added.push(rule);
+    }
+  }
+
+  for (const rule of beforeRuleSet) {
+    if (!afterRuleSet.has(rule)) {
+      removed.push(rule);
+    }
+  }
+
+  return {
+    positions: { moved, created, destroyed },
+    rules: { added, removed }
+  };
+}
 
 function getNextCommandFile(): number {
   let k = 0;
@@ -76,6 +218,23 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
     return JSON.stringify(errorResponse);
   }
   
+  // Get state BEFORE execution
+  let beforeGrid: string[][];
+  let beforeRules: Rule[];
+  try {
+    const beforeState = await getRawGameState();
+    beforeGrid = beforeState.grid;
+    const beforeStateStr = await getGameState();
+    beforeRules = getRules(beforeStateStr);
+  } catch {
+    const errorResponse: ToolResponse<null> = {
+      success: false,
+      data: null,
+      message: `Failed to read initial game state. Game may not be running.`
+    };
+    return JSON.stringify(errorResponse);
+  }
+  
   const cmdFileNum = getNextCommandFile();
   const cmdPath = path.join(COMMANDS_DIR, `${cmdFileNum}.lua`);
   
@@ -89,39 +248,50 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
   
   const executed = await waitForCommandExecution(cmdFileNum, 2);
   
+  // Get state AFTER execution (even on timeout/partial failure)
+  let afterGrid: string[][];
+  let afterRules: Rule[];
+  try {
+    const afterState = await getRawGameState();
+    afterGrid = afterState.grid;
+    const afterStateStr = await getGameState();
+    afterRules = getRules(afterStateStr);
+  } catch {
+    const errorResponse: ToolResponse<null> = {
+      success: false,
+      data: null,
+      message: `Failed to read game state after command. Game may not be running.`
+    };
+    return JSON.stringify(errorResponse);
+  }
+  
+  // Calculate diff
+  const diff = calculateStateDiff(beforeGrid, afterGrid, beforeRules, afterRules);
+  
   if (!executed) {
     // Even on timeout, commands may have partially executed
-    // Try to get current state to report what actually happened
-    try {
-      const gameState = await getGameState();
-      const rules = getRules(gameState);
-      const youPositions = getStatePositions(gameState, "you");
-      const data: CommandExecutionData = {
-        executed: validCmds,
-        active_rules: rules,
-        you_positions: youPositions,
-        win_positions: []
-      };
-      const response: ToolResponse<CommandExecutionData> = {
-        success: false,
-        data,
-        message: `Partial execution. Commands may have partially executed.`
-      };
-      return JSON.stringify(response);
-    } catch {
-      const errorResponse: ToolResponse<null> = {
-        success: false,
-        data: null,
-        message: `Failed to execute command ${cmdFileNum}. Game may not be running.`
-      };
-      return JSON.stringify(errorResponse);
-    }
+    // Include diff to show what actually happened
+    const youPositions = getStatePositions(await getGameState(), "you");
+    const winPositions = getStatePositions(await getGameState(), "win");
+    const data: CommandExecutionData & { diff: StateDiff } = {
+      executed: validCmds,
+      active_rules: afterRules,
+      you_positions: youPositions,
+      win_positions: winPositions,
+      diff
+    };
+    const response: ToolResponse<typeof data> = {
+      success: false,
+      data,
+      message: `Partial execution. Commands may have partially executed.`
+    };
+    return JSON.stringify(response);
   }
   
   if (!returnState) {
-    const response: ToolResponse<{ executed: string[] }> = {
+    const response: ToolResponse<{ executed: string[]; diff: StateDiff }> = {
       success: true,
-      data: { executed: validCmds },
+      data: { executed: validCmds, diff },
       message: `Executed ${validCmds.length} command(s)`
     };
     return JSON.stringify(response);
@@ -132,14 +302,15 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
   const youPositions = getStatePositions(gameState, "you");
   const winPositions = getStatePositions(gameState, "win");
   
-  const data: CommandExecutionData = {
+  const data: CommandExecutionData & { diff: StateDiff } = {
     executed: validCmds,
     active_rules: rules,
     you_positions: youPositions,
     win_positions: winPositions,
+    diff
   };
   
-  const response: ToolResponse<CommandExecutionData> = {
+  const response: ToolResponse<typeof data> = {
     success: true,
     data,
     message: `Executed ${validCmds.length} command(s)`
