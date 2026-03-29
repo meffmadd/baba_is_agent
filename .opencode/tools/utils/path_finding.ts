@@ -42,7 +42,7 @@ function popHeap(heap: PriorityQueueItem[]): PriorityQueueItem | undefined {
   return result;
 }
 
-function blockedEntities(gameState: string, avoidText: boolean = true): number[][] {
+export function blockedEntities(gameState: string, avoidText: boolean = true): number[][] {
   const rules = getRules(gameState);
   const blockedStates: [string | null, string][] = [[null, "stop"], [null, "defeat"], ["melt", "hot"]];
   const yous = rules.filter((r) => r.state === "you").map((r) => r.entity);
@@ -87,7 +87,7 @@ function heuristic(a: [number, number], b: [number, number]): number {
 
 type Node = [number, number];
 
-function aStar(
+export function aStar(
   grid: number[][],
   start: Node,
   goal: Node
