@@ -4,9 +4,9 @@ import { restartLevel } from "./utils/execute_commands.js";
 export default tool({
   description: "Restart the current Baba Is You level.",
   args: {
-    return_state: tool.schema.boolean().default(true).describe("Return minimal game state after restart. Set false to skip."),
+    return_insights: tool.schema.boolean().default(true).describe("Return game insights after restart (active rules, YOU positions, WIN positions, path to win). Set false to return only minimal info."),
   },
-  async execute(args: { return_state: boolean }) {
-    return await restartLevel(args.return_state);
+  async execute(args: { return_insights: boolean }) {
+    return await restartLevel(args.return_insights);
   },
 });

@@ -131,7 +131,7 @@ async function main() {
     
     // Force state update by sending idle command
     console.log("Forcing state update (idle command)...");
-    await executeCommands("idle", false);
+    await executeCommands("idle", true);
     
     // Read state AFTER execution
     console.log("Reading updated state...");

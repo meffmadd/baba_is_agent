@@ -205,7 +205,7 @@ async function waitForCommandExecution(cmdFileNum: number, maxRetries: number = 
   return false;
 }
 
-export async function executeCommands(commandsStr: string, returnState: boolean = true): Promise<string> {
+export async function executeCommands(commandsStr: string, returnInsights: boolean = true): Promise<string> {
   const commands = commandsStr.split(",").map(c => c.trim()).filter(c => c);
   const validCmds = commands.filter(c => VALID_COMMANDS.includes(c));
   
@@ -288,7 +288,7 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
     return JSON.stringify(response);
   }
   
-  if (!returnState) {
+  if (!returnInsights) {
     const response: ToolResponse<{ executed: string[]; diff: StateDiff }> = {
       success: true,
       data: { executed: validCmds, diff },
@@ -319,7 +319,7 @@ export async function executeCommands(commandsStr: string, returnState: boolean 
   return JSON.stringify(response);
 }
 
-export async function restartLevel(returnState: boolean = true): Promise<string> {
+export async function restartLevel(returnInsights: boolean = true): Promise<string> {
   const cmdFileNum = getNextCommandFile();
   const cmdPath = path.join(COMMANDS_DIR, `${cmdFileNum}.lua`);
   fs.writeFileSync(cmdPath, `command("restart_instant", 1)\n`);
@@ -339,7 +339,7 @@ export async function restartLevel(returnState: boolean = true): Promise<string>
       return JSON.stringify(errorResponse);
     }
 
-    if (!returnState) {
+    if (!returnInsights) {
       const response: ToolResponse<null> = {
         success: true,
         data: null,
@@ -372,7 +372,7 @@ export async function restartLevel(returnState: boolean = true): Promise<string>
   }
 }
 
-export async function undoMultiple(n: number, returnState: boolean = true): Promise<string> {
+export async function undoMultiple(n: number, returnInsights: boolean = true): Promise<string> {
   const numUndos = Math.min(n, 50);
   const cmdFileNum = getNextCommandFile();
   const cmdPath = path.join(COMMANDS_DIR, `${cmdFileNum}.lua`);
@@ -397,7 +397,7 @@ export async function undoMultiple(n: number, returnState: boolean = true): Prom
       return JSON.stringify(errorResponse);
     }
 
-    if (!returnState) {
+    if (!returnInsights) {
       const response: ToolResponse<{ undos: number }> = {
         success: true,
         data: { undos: numUndos },
