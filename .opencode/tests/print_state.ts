@@ -1,95 +1,62 @@
-// Print game state and insights for debugging
-import { getGameState, getGameStateAsJson, getRawGameState } from "../tools/utils/get_game_state.js";
+// Print game state as compact grid
+import { getRawGameState } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
-import { executeCommands, calculateStateDiff, extractEntityPositions } from "../tools/utils/execute_commands.js";
+import { executeCommands } from "../tools/utils/execute_commands.js";
 import { getRules } from "../tools/utils/base.js";
-import type { StateDiff } from "../tools/utils/models.js";
+import { extractEntityPositions, calculateStateDiff } from "../tools/utils/execute_commands.js";
 
-function formatDiff(diff: StateDiff): string {
-  const lines: string[] = [];
-  
-  // Position changes
-  if (diff.positions.moved.length > 0) {
-    lines.push("  Moved:");
-    for (const m of diff.positions.moved) {
-      lines.push(`    ${m.entity}: (${m.from[0]}, ${m.from[1]}) → (${m.to[0]}, ${m.to[1]})`);
-    }
-  }
-  
-  if (diff.positions.created.length > 0) {
-    lines.push("  Created:");
-    for (const c of diff.positions.created) {
-      lines.push(`    ${c.entity} at (${c.at[0]}, ${c.at[1]})`);
-    }
-  }
-  
-  if (diff.positions.destroyed.length > 0) {
-    lines.push("  Destroyed:");
-    for (const d of diff.positions.destroyed) {
-      lines.push(`    ${d.entity} at (${d.at[0]}, ${d.at[1]})`);
-    }
-  }
-  
-  // Rule changes
-  if (diff.rules.added.length > 0) {
-    lines.push("  Rules Added:");
-    for (const r of diff.rules.added) {
-      lines.push(`    ${r}`);
-    }
-  }
-  
-  if (diff.rules.removed.length > 0) {
-    lines.push("  Rules Removed:");
-    for (const r of diff.rules.removed) {
-      lines.push(`    ${r}`);
-    }
-  }
-  
-  if (lines.length === 0) {
-    lines.push("  No changes detected");
-  }
-  
-  return lines.join("\n");
+function getEntityChar(entity: string): string {
+  if (!entity) return " ";
+  const first = entity.split("<")[0] || "";
+  const entityMap: Record<string, string> = {
+    "baba": "B",
+    "wall": "W",
+    "rock": "R",
+    "flag": "F",
+    "skull": "S",
+    "grass": "g",
+    "flower": "f",
+    "tile": "t",
+    "brick": "b",
+    "text_baba": "b",
+    "text_wall": "w",
+    "text_rock": "r",
+    "text_flag": "f",
+    "text_skull": "s",
+    "text_is": "=",
+    "text_you": "y",
+    "text_win": "+",
+    "text_stop": ".",
+    "text_defeat": "x",
+    "text_push": "p",
+  };
+  return entityMap[first] || first.charAt(0).toUpperCase();
 }
 
 async function printGameState() {
-  console.log("=".repeat(80));
-  console.log("GAME STATE - MARKDOWN FORMAT (active_only=true)");
-  console.log("=".repeat(80));
-  console.log();
+  const rawState = await getRawGameState();
+  const { grid, width, height } = rawState;
 
-  const activeState = await getGameState(true);
-  console.log(activeState);
+  const header = "    " + Array.from({ length: width }, (_, i) => String((i + 1) % 10)).join(" ");
+  console.log(header);
+  for (let y = 0; y < height; y++) {
+    let rowStr = String(y + 1).padStart(2, " ") + " |";
+    for (let x = 0; x < width; x++) {
+      const cell = grid[y]?.[x] || "";
+      const char = getEntityChar(cell);
+      rowStr += char + "|";
+    }
+    console.log(rowStr);
+  }
   console.log();
-
-  console.log("=".repeat(80));
-  console.log("GAME STATE - MARKDOWN FORMAT (active_only=false)");
-  console.log("=".repeat(80));
-  console.log();
-
-  const fullState = await getGameState(false);
-  console.log(fullState);
-  console.log();
-
-  console.log("=".repeat(80));
-  console.log("GAME STATE - JSON FORMAT (active_only=false)");
-  console.log("=".repeat(80));
-  console.log();
-
-  const jsonState = await getGameStateAsJson(false);
-  console.log(JSON.stringify(jsonState, null, 2));
-  console.log();
+  console.log("Legend: B=baba, W=wall, R=rock, F=flag, S=SKULL, g=grass, f=flower, t=tile, b=brick");
+  console.log("Text objects: lowercase (b=text_baba, w=text_wall, r=text_rock, f=text_flag, s=text_skull)");
+  console.log("Special: ==text_is, y=text_you, +=text_win, .=text_stop, x=text_defeat");
 }
 
 async function printGameInsights() {
-  console.log("=".repeat(80));
-  console.log("GAME INSIGHTS");
-  console.log("=".repeat(80));
-  console.log();
-  
-  const insights = await getGameInsights();
-  
   console.log("Active Rules:");
+  const insights = await getGameInsights();
   for (const rule of insights.active_rules) {
     console.log(`  ${rule.entity} IS ${rule.state}`);
   }
@@ -102,16 +69,8 @@ async function printGameInsights() {
   if (insights.path_to_win) {
     console.log("Path to Win:");
     console.log(`  Moves: ${insights.path_to_win.moves.join(", ")}`);
-    console.log(`  Goal: ${insights.path_to_win.goal}`);
   } else {
     console.log("Path to Win: No path found");
-  }
-  console.log();
-  
-  console.log("Reachable Entities (by row):");
-  for (const row of insights.reachable_entities) {
-    const items = row.map(([x, y, entity]) => `${entity}@(${x},${y})`).join(", ");
-    console.log(`  ${items}`);
   }
   console.log();
   
@@ -119,40 +78,65 @@ async function printGameInsights() {
   for (const rule of insights.manipulable_rules) {
     console.log(`  ${rule.text} at (${rule.position[0]}, ${rule.position[1]})`);
   }
-  console.log();
 }
 
 async function main() {
   try {
-    // Read state BEFORE execution
-    console.log("Reading initial state...");
     const beforeState = await getRawGameState();
-    const beforeRules = getRules(await getGameState());
+    const beforeStateStr = await (await import("../tools/utils/get_game_state.js")).getGameState();
+    const beforeRules = getRules(beforeStateStr);
     
-    // Force state update by sending idle command
-    console.log("Forcing state update (idle command)...");
-    await executeCommands("idle", true);
+    await executeCommands("idle", false);
     
-    // Read state AFTER execution
-    console.log("Reading updated state...");
     const afterState = await getRawGameState();
-    const afterRules = getRules(await getGameState());
+    const afterStateStr = await (await import("../tools/utils/get_game_state.js")).getGameState();
+    const afterRules = getRules(afterStateStr);
     
-    // Calculate diff
     const diff = calculateStateDiff(beforeState.grid, afterState.grid, beforeRules, afterRules);
     
-    console.log("=".repeat(80));
-    console.log("STATE CHANGES (DIFF)");
-    console.log("=".repeat(80));
-    console.log();
-    console.log(formatDiff(diff));
+    console.log("=== State Diff (after idle) ===");
+    if (diff.positions.moved.length > 0) {
+      console.log("Moved:");
+      for (const m of diff.positions.moved) {
+        console.log(`  ${m.entity}: (${m.from[0]}, ${m.from[1]}) -> (${m.to[0]}, ${m.to[1]})`);
+      }
+    }
+    if (diff.positions.created.length > 0) {
+      console.log("Created:");
+      for (const c of diff.positions.created) {
+        console.log(`  ${c.entity} at (${c.at[0]}, ${c.at[1]})`);
+      }
+    }
+    if (diff.positions.destroyed.length > 0) {
+      console.log("Destroyed:");
+      for (const d of diff.positions.destroyed) {
+        console.log(`  ${d.entity} at (${d.at[0]}, ${d.at[1]})`);
+      }
+    }
+    if (diff.rules.added.length > 0) {
+      console.log("Rules Added:");
+      for (const r of diff.rules.added) {
+        console.log(`  ${r}`);
+      }
+    }
+    if (diff.rules.removed.length > 0) {
+      console.log("Rules Removed:");
+      for (const r of diff.rules.removed) {
+        console.log(`  ${r}`);
+      }
+    }
+    if (diff.positions.moved.length === 0 && diff.positions.created.length === 0 && 
+        diff.positions.destroyed.length === 0 && diff.rules.added.length === 0 && 
+        diff.rules.removed.length === 0) {
+      console.log("  (no changes)");
+    }
     console.log();
     
     await printGameState();
+    console.log();
+    console.log("=".repeat(60));
+    console.log();
     await printGameInsights();
-    console.log("=".repeat(80));
-    console.log("Done!");
-    console.log("=".repeat(80));
   } catch (error) {
     console.error("Error:", error);
     process.exit(1);
