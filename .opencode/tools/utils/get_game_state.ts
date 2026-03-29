@@ -56,14 +56,16 @@ function parseGameStateGrid(active_only: boolean = false): { grid: string[][]; w
   if (stateMatch) {
     const stateData = stateMatch[1];
     const units = stateData.split("€").filter(u => u);
-    
+
     for (const unit of units) {
       const parts = unit.split("|");
       if (parts.length >= 21) {
         const name = parts[1];
-        const x = parseInt(parts[3]);
-        const y = parseInt(parts[4]);
-        
+        const gameX = parseInt(parts[3]);
+        const gameY = parseInt(parts[4]);
+        const x = gameX - 1;
+        const y = gameY - 1;
+
         if (x >= 0 && x < roomSize.width && y >= 0 && y < roomSize.height) {
           if (grid[y][x]) {
             grid[y][x] = grid[y][x] + "<" + name;
@@ -133,16 +135,17 @@ export async function getRawGameState(): Promise<{ grid: string[][]; width: numb
   if (stateMatch) {
     const stateData = stateMatch[1];
     const units = stateData.split("€").filter(u => u);
-    
+
     for (const unit of units) {
       const parts = unit.split("|");
       if (parts.length >= 21) {
         const name = parts[1];
-        const x = parseInt(parts[3]);
-        const y = parseInt(parts[4]);
-        
+        const gameX = parseInt(parts[3]);
+        const gameY = parseInt(parts[4]);
+        const x = gameX - 1;
+        const y = gameY - 1;
+
         if (x >= 0 && x < roomSize.width && y >= 0 && y < roomSize.height) {
-          // Use name directly - text objects already have "text_" prefix in raw data
           if (grid[y][x]) {
             grid[y][x] = grid[y][x] + "<" + name;
           } else {
