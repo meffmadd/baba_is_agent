@@ -41,12 +41,13 @@ function buildFormattedOutput(grid: string[][], width: number, height: number): 
 function parseGameStateGrid(active_only: boolean = false): { grid: string[][]; width: number; height: number } {
   const content = fs.readFileSync(STATE_PATH, "utf-8");
   
-  let roomSize = { width: 35, height: 20 };
+  let roomSize = { width: 33, height: 18 };
   
   for (const line of content.split("\n")) {
     if (line.startsWith("room_size=")) {
       const [w, h] = line.split("=")[1].split("|").map(Number);
-      roomSize = { width: w, height: h };
+      // Game engine reports 2 extra rows/columns beyond actual playable area
+      roomSize = { width: w - 2, height: h - 2 };
     }
   }
   
@@ -120,12 +121,13 @@ export async function getGameStateAsJson(active_only: boolean = false): Promise<
 export async function getRawGameState(): Promise<{ grid: string[][]; width: number; height: number }> {
   const content = fs.readFileSync(STATE_PATH, "utf-8");
   
-  let roomSize = { width: 35, height: 20 };
+  let roomSize = { width: 33, height: 18 };
   
   for (const line of content.split("\n")) {
     if (line.startsWith("room_size=")) {
       const [w, h] = line.split("=")[1].split("|").map(Number);
-      roomSize = { width: w, height: h };
+      // Game engine reports 2 extra rows/columns beyond actual playable area
+      roomSize = { width: w - 2, height: h - 2 };
     }
   }
   
