@@ -16,10 +16,25 @@ function coord2pos(coord: [number, number]): [number, number] {
 
 export function parseGameState(gameState: string): string[][] {
   const lines = gameState.split("\n").slice(2);
-  return lines.map((line) => {
+  const result: string[][] = [];
+  for (const line of lines) {
+    if (line.trim().length === 0) continue;
     const parts = line.split("|").slice(1);
-    return parts.map((c) => c.trim());
-  });
+    const row: string[] = [];
+    for (const part of parts) {
+      row.push(part.trim());
+    }
+    const nonEmptyCount = row.filter((c) => c.length > 0).length;
+    if (nonEmptyCount === 0) continue;
+    result.push(row);
+  }
+  if (result.length === 0) return result;
+  const firstRow = result[0]!;
+  let width = firstRow.length;
+  while (width > 0 && firstRow[width - 1]!.trim() === "") {
+    width--;
+  }
+  return result.map((row) => row.slice(0, width));
 }
 
 export function gameStateCoords(gameState: string): [number, number, string][] {
