@@ -42,7 +42,7 @@ function canReach(gameState: string, start: [number, number], goal: [number, num
   return false;
 }
 
-function testMultiYouShortestPath(gameState: string) {
+function testShortestPath(gameState: string, lastMove: Direction, expected: Direction[]) {
   const flags = findEntity(gameState, "flag");
   if (flags.length === 0) {
     console.log("FAIL: No flag found");
@@ -50,14 +50,20 @@ function testMultiYouShortestPath(gameState: string) {
   }
   const flag = flags[0]!;
   
-  const result = shortestPath(gameState, [flag.x, flag.y], "left");
+  const result = shortestPath(gameState, [flag.x, flag.y], lastMove);
   
-  if (result.length !== 2 || result[0] !== "left" || result[1] !== "left") {
-    console.log(`FAIL: Expected ["left", "left"], got [${result.map(r => `"${r}"`).join(", ")}]`);
+  if (result.length !== expected.length || !result.every((r, i) => r === expected[i])) {
+    console.log(`FAIL: ${lastMove} -> expected [${expected.map(r => `"${r}"`).join(", ")}], got [${result.map(r => `"${r}"`).join(", ")}]`);
     process.exit(1);
   }
   
-  console.log("PASS: Shortest path with multiple YOU positions correctly returns shortest path");
+  console.log(`PASS: ${lastMove} -> [${result.map(r => `"${r}"`).join(", ")}]`);
+}
+
+function testMultiYouShortestPath(gameState: string) {
+  testShortestPath(gameState, "left", ["left", "left"]);
+  testShortestPath(gameState, "down", ["down", "down"]);
+  testShortestPath(gameState, "up", ["up", "up"]);
 }
 
 async function main() {
