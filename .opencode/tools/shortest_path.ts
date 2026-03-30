@@ -24,7 +24,7 @@ export default tool({
     const gameState = await getGameState();
     const path = tsShortestPath(
       gameState,
-      [args.target_x, args.target_y],
+      { x: args.target_x, y: args.target_y },
       args.last_move as Direction
     );
 

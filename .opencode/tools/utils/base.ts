@@ -6,12 +6,12 @@ function transpose<T>(matrix: T[][]): T[][] {
   return matrix[0]!.map((_, i) => matrix.map((row) => row[i]!));
 }
 
-function pos2coord(pos: [number, number]): [number, number] {
-  return [pos[0] - 1, pos[1] - 1];
+function pos2coord(pos: { x: number; y: number }): { x: number; y: number } {
+  return { x: pos.x - 1, y: pos.y - 1 };
 }
 
-function coord2pos(coord: [number, number]): [number, number] {
-  return [coord[0] + 1, coord[1] + 1];
+function coord2pos(coord: { x: number; y: number }): { x: number; y: number } {
+  return { x: coord.x + 1, y: coord.y + 1 };
 }
 
 export function parseGameState(gameState: string): string[][] {
@@ -29,17 +29,22 @@ export function parseGameState(gameState: string): string[][] {
     result.push(row);
   }
   if (result.length === 0) return result;
-  const firstRow = result[0]!;
-  let width = firstRow.length;
-  while (width > 0 && firstRow[width - 1]!.trim() === "") {
-    width--;
+  // Find the maximum width across all rows (not just the first one)
+  let width = 0;
+  for (const row of result) {
+    // Find the last non-empty column in this row
+    let rowWidth = row.length;
+    while (rowWidth > 0 && row[rowWidth - 1]!.trim() === "") {
+      rowWidth--;
+    }
+    width = Math.max(width, rowWidth);
   }
   return result.map((row) => row.slice(0, width));
 }
 
-export function gameStateCoords(gameState: string): [number, number, string][] {
+export function gameStateCoords(gameState: string): { x: number; y: number; entity: string }[] {
   const matrix = parseGameState(gameState);
-  const coords: [number, number, string][] = [];
+  const coords: { x: number; y: number; entity: string }[] = [];
 
   for (let y = 0; y < matrix.length; y++) {
     const row = matrix[y]!;
@@ -48,7 +53,7 @@ export function gameStateCoords(gameState: string): [number, number, string][] {
       const entities = entity.split("<");
       for (const e of entities) {
         if (RELEVANT_ENTITIES.includes(e) || e.startsWith("text_")) {
-          coords.push([x + 1, y + 1, e]);
+          coords.push({ x: x + 1, y: y + 1, entity: e });
         }
       }
     }
@@ -94,14 +99,14 @@ export function getRules(gameState: string): Rule[] {
   return [...new Set([...rowRules, ...colRules])];
 }
 
-function getCoordsOfElement(gameState: string, target: string): [number, number][] {
+function getCoordsOfElement(gameState: string, target: string): { x: number; y: number }[] {
   const matrix = parseGameState(gameState);
-  const coords: [number, number][] = [];
+  const coords: { x: number; y: number }[] = [];
 
   for (let y = 0; y < matrix.length; y++) {
     for (let x = 0; x < matrix[y]!.length; x++) {
       if (matrix[y]![x]!.includes(target) && !matrix[y]![x]!.includes("text_")) {
-        coords.push([x + 1, y + 1]);
+        coords.push({ x: x + 1, y: y + 1 });
       }
     }
   }
@@ -111,7 +116,7 @@ function getCoordsOfElement(gameState: string, target: string): [number, number]
 export function getStatePositions(
   gameState: string,
   state: string
-): [number, number][] {
+): { x: number; y: number }[] {
   const rules = getRules(gameState);
   const matchingRules = rules.filter((r) => r.state === state);
 
@@ -122,9 +127,9 @@ export function getStatePositions(
   return getCoordsOfElement(gameState, matchingRules[0]!.entity);
 }
 
-export function getTextBlockPositions(gameState: string): [number, number, string][] {
+export function getTextBlockPositions(gameState: string): { x: number; y: number; text: string }[] {
   const matrix = parseGameState(gameState);
-  const coords: [number, number, string][] = [];
+  const coords: { x: number; y: number; text: string }[] = [];
 
   for (let y = 0; y < matrix.length; y++) {
     const row = matrix[y]!;
@@ -133,7 +138,7 @@ export function getTextBlockPositions(gameState: string): [number, number, strin
       const entities = entity.split("<");
       for (const e of entities) {
         if (e.startsWith("text_")) {
-          coords.push([x + 1, y + 1, e]);
+          coords.push({ x: x + 1, y: y + 1, text: e });
         }
       }
     }
@@ -144,20 +149,20 @@ export function getTextBlockPositions(gameState: string): [number, number, strin
 export type Direction = "up" | "down" | "left" | "right";
 
 export function applyMove(
-  pos: [number, number],
+  pos: { x: number; y: number },
   move: Direction,
   reverse: boolean = false
-): [number, number] {
+): { x: number; y: number } {
   const quantity = reverse ? -1 : 1;
 
   switch (move) {
     case "left":
-      return [pos[0] - quantity, pos[1]];
+      return { x: pos.x - quantity, y: pos.y };
     case "right":
-      return [pos[0] + quantity, pos[1]];
+      return { x: pos.x + quantity, y: pos.y };
     case "up":
-      return [pos[0], pos[1] - quantity];
+      return { x: pos.x, y: pos.y - quantity };
     case "down":
-      return [pos[0], pos[1] + quantity];
+      return { x: pos.x, y: pos.y + quantity };
   }
 }

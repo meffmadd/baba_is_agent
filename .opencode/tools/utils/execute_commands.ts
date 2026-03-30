@@ -67,9 +67,9 @@ export function calculateStateDiff(
     afterMap.get(pos.entity)!.push(pos);
   }
 
-  const moved: { entity: string; from: [number, number]; to: [number, number] }[] = [];
-  const created: { entity: string; at: [number, number] }[] = [];
-  const destroyed: { entity: string; at: [number, number] }[] = [];
+  const moved: { entity: string; from: { x: number; y: number }; to: { x: number; y: number } }[] = [];
+  const created: { entity: string; at: { x: number; y: number } }[] = [];
+  const destroyed: { entity: string; at: { x: number; y: number } }[] = [];
 
   // All unique entities
   const allEntities = new Set([...beforeMap.keys(), ...afterMap.keys()]);
@@ -101,8 +101,8 @@ export function calculateStateDiff(
         // Consider it a move if positions are different
         moved.push({
           entity,
-          from: [beforeList[i].x, beforeList[i].y],
-          to: [afterList[j].x, afterList[j].y]
+          from: { x: beforeList[i].x, y: beforeList[i].y },
+          to: { x: afterList[j].x, y: afterList[j].y }
         });
         matchedBefore.add(i);
         matchedAfter.add(j);
@@ -115,7 +115,7 @@ export function calculateStateDiff(
       if (!matchedBefore.has(i)) {
         destroyed.push({
           entity,
-          at: [beforeList[i].x, beforeList[i].y]
+          at: { x: beforeList[i].x, y: beforeList[i].y }
         });
       }
     }
@@ -125,7 +125,7 @@ export function calculateStateDiff(
       if (!matchedAfter.has(j)) {
         created.push({
           entity,
-          at: [afterList[j].x, afterList[j].y]
+          at: { x: afterList[j].x, y: afterList[j].y }
         });
       }
     }

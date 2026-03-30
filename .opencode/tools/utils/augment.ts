@@ -5,7 +5,7 @@ function augmentMove(gameState: string, move: GameMoves): AugmentedGameMoves {
   let isValid = true;
 
   for (const m of move.moves) {
-    const path = shortestPath(gameState, [m.x, m.y], m.last_move);
+    const path = shortestPath(gameState, { x: m.x, y: m.y }, m.last_move);
     if (path.length === 0) {
       isValid = false;
       break;

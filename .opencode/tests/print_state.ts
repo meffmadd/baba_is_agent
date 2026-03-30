@@ -62,8 +62,8 @@ async function printGameInsights() {
   }
   console.log();
   
-  console.log("YOU Positions:", insights.you_positions.map(p => `(${p[0]}, ${p[1]})`).join(", "));
-  console.log("WIN Positions:", insights.win_positions.map(p => `(${p[0]}, ${p[1]})`).join(", "));
+  console.log("YOU Positions:", insights.you_positions.map(p => `(${p.x}, ${p.y})`).join(", "));
+  console.log("WIN Positions:", insights.win_positions.map(p => `(${p.x}, ${p.y})`).join(", "));
   console.log();
   
   if (insights.path_to_win) {
@@ -76,7 +76,7 @@ async function printGameInsights() {
   
   console.log("Manipulable Rule Text Blocks:");
   for (const rule of insights.manipulable_rules) {
-    console.log(`  ${rule.text} at (${rule.position[0]}, ${rule.position[1]})`);
+    console.log(`  ${rule.text} at (${rule.position.x}, ${rule.position.y})`);
   }
 }
 
@@ -98,19 +98,19 @@ async function main() {
     if (diff.positions.moved.length > 0) {
       console.log("Moved:");
       for (const m of diff.positions.moved) {
-        console.log(`  ${m.entity}: (${m.from[0]}, ${m.from[1]}) -> (${m.to[0]}, ${m.to[1]})`);
+        console.log(`  ${m.entity}: (${m.from.x}, ${m.from.y}) -> (${m.to.x}, ${m.to.y})`);
       }
     }
     if (diff.positions.created.length > 0) {
       console.log("Created:");
       for (const c of diff.positions.created) {
-        console.log(`  ${c.entity} at (${c.at[0]}, ${c.at[1]})`);
+        console.log(`  ${c.entity} at (${c.at.x}, ${c.at.y})`);
       }
     }
     if (diff.positions.destroyed.length > 0) {
       console.log("Destroyed:");
       for (const d of diff.positions.destroyed) {
-        console.log(`  ${d.entity} at (${d.at[0]}, ${d.at[1]})`);
+        console.log(`  ${d.entity} at (${d.at.x}, ${d.at.y})`);
       }
     }
     if (diff.rules.added.length > 0) {

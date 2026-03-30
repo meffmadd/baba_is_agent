@@ -5,8 +5,8 @@ import type { ToolResponse, GameInsights } from "./utils/models.js";
 export default tool({
   description:
     "Analyze the current Baba Is You game state. Returns: active rules (e.g., 'baba IS you'), " +
-    "reachable entities grouped by row, YOU positions, WIN positions, path to win if reachable, " +
-    "and positions of manipulable rule text blocks.",
+    "reachable entities with positions {x, y}, YOU positions {x, y}, WIN positions {x, y}, path to win if reachable, " +
+    "and positions of manipulable rule text blocks. Coordinates: x is horizontal (left-to-right), y is vertical (top-to-bottom), starting at (1,1) at top-left.",
   args: {},
   async execute(args, context: { directory: string }) {
     const result = await getGameInsights();

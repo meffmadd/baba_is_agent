@@ -11,22 +11,6 @@ export async function getGameInsights(): Promise<GameInsights> {
   const winPositions = getStatePositions(gameState, "win");
   const reachable = reachableEntities(gameState);
 
-  const reachableGrouped: [number, number, string][][] = [];
-  const rows = new Map<number, [number, number, string][]>();
-
-  for (const item of reachable) {
-    const y = item[1];
-    if (!rows.has(y)) {
-      rows.set(y, []);
-    }
-    rows.get(y)!.push(item);
-  }
-
-  const sortedYs = Array.from(rows.keys()).sort((a, b) => a - b);
-  for (const y of sortedYs) {
-    reachableGrouped.push(rows.get(y)!);
-  }
-
   let pathToWin = null;
 
   if (winPositions.length > 0) {
@@ -51,14 +35,14 @@ export async function getGameInsights(): Promise<GameInsights> {
   }
 
   const textBlocks = getTextBlockPositions(gameState);
-  const manipulableRules: ManipulableRule[] = textBlocks.map(([x, y, text]) => ({
+  const manipulableRules: ManipulableRule[] = textBlocks.map(({ x, y, text }) => ({
     text,
-    position: [x, y],
+    position: { x, y },
   }));
 
   return {
     active_rules: rules,
-    reachable_entities: reachableGrouped,
+    reachable_entities: reachable,
     you_positions: youPositions,
     win_positions: winPositions,
     path_to_win: pathToWin,

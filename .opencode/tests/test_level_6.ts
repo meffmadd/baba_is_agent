@@ -25,16 +25,16 @@ function findEntity(gameState: string, name: string): { x: number; y: number }[]
   return entities;
 }
 
-function canReach(gameState: string, start: [number, number], goal: [number, number]): boolean {
+function canReach(gameState: string, start: { x: number; y: number }, goal: { x: number; y: number }): boolean {
   const blocked = blockedEntities(gameState);
-  const startCoord: [number, number] = [start[0] - 1, start[1] - 1];
+  const startCoord: { x: number; y: number } = { x: start.x - 1, y: start.y - 1 };
   
   for (const dir of ["up", "down", "left", "right"] as Direction[]) {
-    const goalCoord: [number, number] = [goal[0] - 1, goal[1] - 1];
+    const goalCoord: { x: number; y: number } = { x: goal.x - 1, y: goal.y - 1 };
     const goalPrev = applyMove(goalCoord, dir, true);
     
-    if (blocked[goalCoord[1]]?.[goalCoord[0]] === 1) continue;
-    if (blocked[goalPrev[1]]?.[goalPrev[0]] === 1) continue;
+    if (blocked[goalCoord.y]?.[goalCoord.x] === 1) continue;
+    if (blocked[goalPrev.y]?.[goalPrev.x] === 1) continue;
     
     const path = aStar(blocked, startCoord, goalPrev);
     if (path !== null) return true;
@@ -50,7 +50,7 @@ function testShortestPath(gameState: string, lastMove: Direction, expected: Dire
   }
   const flag = flags[0]!;
   
-  const result = shortestPath(gameState, [flag.x, flag.y], lastMove);
+  const result = shortestPath(gameState, flag, lastMove);
   
   if (result.length !== expected.length || !result.every((r, i) => r === expected[i])) {
     console.log(`FAIL: ${lastMove} -> expected [${expected.map(r => `"${r}"`).join(", ")}], got [${result.map(r => `"${r}"`).join(", ")}]`);
@@ -85,7 +85,7 @@ async function main() {
   let reachable = 0;
   
   for (const wall of walls) {
-    if (canReach(gameState, [wall.x, wall.y], [flag.x, flag.y])) {
+    if (canReach(gameState, wall, flag)) {
       reachable++;
     }
   }

@@ -1,9 +1,9 @@
 import { type Direction, getRules, parseGameState, applyMove, getStatePositions, gameStateCoords } from "./base.js";
-import type { Rule } from "./models.js";
+import type { Rule, ReachableEntity } from "./models.js";
 
 interface PriorityQueueItem {
   priority: number;
-  position: [number, number];
+  position: { x: number; y: number };
 }
 
 function pushHeap(heap: PriorityQueueItem[], item: PriorityQueueItem): void {
@@ -81,11 +81,11 @@ export function blockedEntities(gameState: string, avoidText: boolean = true): n
   return blockedMatrix;
 }
 
-function heuristic(a: [number, number], b: [number, number]): number {
-  return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+function heuristic(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
 
-type Node = [number, number];
+type Node = { x: number; y: number };
 
 export function aStar(
   grid: number[][],
@@ -93,19 +93,19 @@ export function aStar(
   goal: Node
 ): Node[] | null {
   if (
-    grid[start[1]]?.[start[0]] === 1 ||
-    grid[goal[1]]?.[goal[0]] === 1
+    grid[start.y]?.[start.x] === 1 ||
+    grid[goal.y]?.[goal.x] === 1
   ) {
     return null;
   }
 
-  const neighbors: [number, number][] = [
-    [0, 1],
-    [0, -1],
-    [1, 0],
-    [-1, 0],
+  const neighbors: { x: number; y: number }[] = [
+    { x: 0, y: 1 },
+    { x: 0, y: -1 },
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
   ];
-  const shape: [number, number] = [grid[0]!.length, grid.length];
+  const shape: { x: number; y: number } = { x: grid[0]!.length, y: grid.length };
 
   const closeSet = new Set<string>();
   const cameFrom = new Map<string, Node>();
@@ -113,38 +113,38 @@ export function aStar(
   const fScore = new Map<string, number>();
   const oheap: PriorityQueueItem[] = [];
 
-  const startKey = `${start[0]},${start[1]}`;
+  const startKey = `${start.x},${start.y}`;
   gScore.set(startKey, 0);
   fScore.set(startKey, heuristic(start, goal));
   pushHeap(oheap, { priority: heuristic(start, goal), position: start });
 
   while (oheap.length > 0) {
     const current = popHeap(oheap)!.position;
-    const currentKey = `${current[0]},${current[1]}`;
+    const currentKey = `${current.x},${current.y}`;
 
-    if (current[0] === goal[0] && current[1] === goal[1]) {
+    if (current.x === goal.x && current.y === goal.y) {
       const path: Node[] = [];
       let curr: Node | undefined = current;
       while (curr) {
         path.unshift(curr);
-        curr = cameFrom.get(`${curr[0]},${curr[1]}`);
+        curr = cameFrom.get(`${curr.x},${curr.y}`);
       }
       return path;
     }
 
     closeSet.add(currentKey);
 
-    for (const [di, dj] of neighbors) {
-      const neighbor: Node = [current[0] + di, current[1] + dj];
-      const neighborKey = `${neighbor[0]},${neighbor[1]}`;
+    for (const { x: di, y: dj } of neighbors) {
+      const neighbor: Node = { x: current.x + di, y: current.y + dj };
+      const neighborKey = `${neighbor.x},${neighbor.y}`;
 
       if (
-        0 <= neighbor[0] &&
-        neighbor[0] < shape[0] &&
-        0 <= neighbor[1] &&
-        neighbor[1] < shape[1]
+        0 <= neighbor.x &&
+        neighbor.x < shape.x &&
+        0 <= neighbor.y &&
+        neighbor.y < shape.y
       ) {
-        if (grid[neighbor[1]][neighbor[0]] === 1) {
+        if (grid[neighbor.y][neighbor.x] === 1) {
           continue;
         }
       } else {
@@ -158,7 +158,7 @@ export function aStar(
 
       if (
         tentativeGScore < (gScore.get(neighborKey) ?? Infinity) ||
-        !oheap.some((item) => item.position[0] === neighbor[0] && item.position[1] === neighbor[1])
+        !oheap.some((item) => item.position.x === neighbor.x && item.position.y === neighbor.y)
       ) {
         cameFrom.set(neighborKey, current);
         gScore.set(neighborKey, tentativeGScore);
@@ -182,30 +182,30 @@ const directionLookup: Record<string, Direction> = {
 };
 
 export function convertPathToMoves(path: Node[]): Direction[] {
-  const diffs: [number, number][] = [];
+  const diffs: { x: number; y: number }[] = [];
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]!;
     const b = path[i + 1]!;
-    diffs.push([b[0] - a[0], b[1] - a[1]]);
+    diffs.push({ x: b.x - a.x, y: b.y - a.y });
   }
-  return diffs.map((d) => directionLookup[`${d[0]},${d[1]}`] as Direction);
+  return diffs.map((d) => directionLookup[`${d.x},${d.y}`] as Direction);
 }
 
 export function shortestPath(
   gameState: string,
-  goal: [number, number],
+  goal: { x: number; y: number },
   lastMove: Direction
 ): Direction[] {
-  const goalCoord: [number, number] = [goal[0] - 1, goal[1] - 1];
+  const goalCoord: { x: number; y: number } = { x: goal.x - 1, y: goal.y - 1 };
   const goalPrev = applyMove(goalCoord, lastMove, true);
   const blocked = blockedEntities(gameState);
   const blockedNoText = blockedEntities(gameState, false);
 
-  if (blockedNoText[goalCoord[1]]?.[goalCoord[0]]) {
+  if (blockedNoText[goalCoord.y]?.[goalCoord.x]) {
     return [];
   }
 
-  if (blocked[goalPrev[1]]?.[goalPrev[0]]) {
+  if (blocked[goalPrev.y]?.[goalPrev.x]) {
     return [];
   }
 
@@ -214,7 +214,7 @@ export function shortestPath(
   let shortestMoves: Direction[] | null = null;
   
   for (const you of youPositions) {
-    const youCoord: [number, number] = [you[0] - 1, you[1] - 1];
+    const youCoord: { x: number; y: number } = { x: you.x - 1, y: you.y - 1 };
     const path = aStar(blocked, youCoord, goalPrev);
 
     if (path === null) {
@@ -234,16 +234,16 @@ export function shortestPath(
 
 export function reachableEntities(
   gameState: string
-): [number, number, string][] {
+): ReachableEntity[] {
   const coords = gameStateCoords(gameState);
-  const reachable: [number, number, string][] = [];
+  const reachable: ReachableEntity[] = [];
 
-  for (const [x, y, entity] of coords) {
+  for (const { x, y, entity } of coords) {
     const lastMoves: Direction[] = ["up", "down", "left", "right"];
     let pathFound = false;
 
     for (const lastMove of lastMoves) {
-      const p = shortestPath(gameState, [x, y], lastMove);
+      const p = shortestPath(gameState, { x, y }, lastMove);
       if (p.length > 0) {
         pathFound = true;
         break;
@@ -251,7 +251,7 @@ export function reachableEntities(
     }
 
     if (pathFound) {
-      reachable.push([x, y, entity]);
+      reachable.push({ x, y, entity });
     }
   }
 

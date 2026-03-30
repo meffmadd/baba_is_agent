@@ -4,7 +4,6 @@ import * as path from "path";
 import { getRules, getStatePositions, gameStateCoords } from "../tools/utils/base.js";
 import { reachableEntities, shortestPath } from "../tools/utils/path_finding.js";
 import { getGameState } from "../tools/utils/get_game_state.js";
-import type { GameInsights } from "../tools/utils/models.js";
 
 const TEST_DIR = path.dirname(new URL(import.meta.url).pathname);
 const FIXTURES_DIR = path.join(TEST_DIR, "fixtures");
@@ -71,12 +70,12 @@ async function runTests() {
   test("finds YOU positions", () => assert(youPositions.length > 0, `Expected YOU positions, got ${youPositions.length}`));
   test("positions are valid coordinates", () => {
     for (const pos of youPositions) {
-      assert(Array.isArray(pos) && pos.length === 2, "Position should be [x, y]");
-      assert(typeof pos[0] === "number" && pos[0] > 0, "X should be positive number");
-      assert(typeof pos[1] === "number" && pos[1] > 0, "Y should be positive number");
+      assert(typeof pos === "object" && pos !== null, "Position should be an object");
+      assert(typeof pos.x === "number" && pos.x > 0, "X should be positive number");
+      assert(typeof pos.y === "number" && pos.y > 0, "Y should be positive number");
     }
   });
-  console.log(`  Found ${youPositions.length} YOU position(s):`, youPositions.map(p => `(${p[0]}, ${p[1]})`).join(", "));
+  console.log(`  Found ${youPositions.length} YOU position(s):`, youPositions.map(p => `(${p.x}, ${p.y})`).join(", "));
   console.log();
   
   // Test 3: getStatePositions (WIN)
@@ -86,12 +85,12 @@ async function runTests() {
   test("finds WIN positions", () => assert(winPositions.length > 0, `Expected WIN positions, got ${winPositions.length}`));
   test("positions are valid coordinates", () => {
     for (const pos of winPositions) {
-      assert(Array.isArray(pos) && pos.length === 2, "Position should be [x, y]");
-      assert(typeof pos[0] === "number" && pos[0] > 0, "X should be positive number");
-      assert(typeof pos[1] === "number" && pos[1] > 0, "Y should be positive number");
+      assert(typeof pos === "object" && pos !== null, "Position should be an object");
+      assert(typeof pos.x === "number" && pos.x > 0, "X should be positive number");
+      assert(typeof pos.y === "number" && pos.y > 0, "Y should be positive number");
     }
   });
-  console.log(`  Found ${winPositions.length} WIN position(s):`, winPositions.map(p => `(${p[0]}, ${p[1]})`).join(", "));
+  console.log(`  Found ${winPositions.length} WIN position(s):`, winPositions.map(p => `(${p.x}, ${p.y})`).join(", "));
   console.log();
   
   // Test 4: reachableEntities
@@ -101,10 +100,10 @@ async function runTests() {
   test("finds reachable entities", () => assert(reachable.length > 0, `Expected reachable entities, got ${reachable.length}`));
   test("entities have valid format", () => {
     for (const entity of reachable) {
-      assert(Array.isArray(entity) && entity.length === 3, "Entity should be [x, y, name]");
-      assert(typeof entity[0] === "number", "X should be number");
-      assert(typeof entity[1] === "number", "Y should be number");
-      assert(typeof entity[2] === "string", "Name should be string");
+      assert(typeof entity === "object" && entity !== null, "Entity should be an object");
+      assert(typeof entity.x === "number", "X should be number");
+      assert(typeof entity.y === "number", "Y should be number");
+      assert(typeof entity.entity === "string", "Entity name should be string");
     }
   });
   console.log(`  Found ${reachable.length} reachable entities`);

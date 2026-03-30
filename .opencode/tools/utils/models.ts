@@ -32,14 +32,20 @@ export interface Rule {
 
 export interface ManipulableRule {
   text: string;
-  position: number[];
+  position: { x: number; y: number };
+}
+
+export interface ReachableEntity {
+  x: number;
+  y: number;
+  entity: string;
 }
 
 export interface GameInsights {
   active_rules: Rule[];
-  reachable_entities: [number, number, string][][];
-  you_positions: [number, number][];
-  win_positions: [number, number][];
+  reachable_entities: ReachableEntity[];
+  you_positions: { x: number; y: number }[];
+  win_positions: { x: number; y: number }[];
   path_to_win: { moves: Direction[]; goal: string } | null;
   manipulable_rules: ManipulableRule[];
 }
@@ -74,8 +80,8 @@ export interface GameStateData {
 export interface CommandExecutionData {
   executed: string[];
   active_rules: Rule[];
-  you_positions: [number, number][];
-  win_positions: [number, number][];
+  you_positions: { x: number; y: number }[];
+  win_positions: { x: number; y: number }[];
 }
 
 // Shortest Path Data Structure
@@ -86,25 +92,25 @@ export interface ShortestPathData {
 // Level Control Data Structure
 export interface LevelControlData {
   active_rules: Rule[];
-  you_positions: [number, number][];
-  win_positions: [number, number][];
+  you_positions: { x: number; y: number }[];
+  win_positions: { x: number; y: number }[];
 }
 
 // Position change tracking
 export interface PositionMoved {
   entity: string;
-  from: [number, number];
-  to: [number, number];
+  from: { x: number; y: number };
+  to: { x: number; y: number };
 }
 
 export interface PositionCreated {
   entity: string;
-  at: [number, number];
+  at: { x: number; y: number };
 }
 
 export interface PositionDestroyed {
   entity: string;
-  at: [number, number];
+  at: { x: number; y: number };
 }
 
 export interface PositionChanges {
