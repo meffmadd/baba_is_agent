@@ -1,6 +1,6 @@
 import { getGameState } from "./get_game_state.js";
 import { getRules, getStatePositions, getTextBlockPositions, type Direction } from "./base.js";
-import { reachableEntities, shortestPath } from "./path_finding.js";
+import { shortestPath } from "./path_finding.js";
 import type { GameInsights, ManipulableRule } from "./models.js";
 
 export async function getGameInsights(): Promise<GameInsights> {
@@ -9,7 +9,6 @@ export async function getGameInsights(): Promise<GameInsights> {
   const rules = getRules(gameState);
   const youPositions = getStatePositions(gameState, "you");
   const winPositions = getStatePositions(gameState, "win");
-  const reachable = reachableEntities(gameState);
 
   let pathToWin = null;
 
@@ -42,7 +41,6 @@ export async function getGameInsights(): Promise<GameInsights> {
 
   return {
     active_rules: rules,
-    reachable_entities: reachable,
     you_positions: youPositions,
     win_positions: winPositions,
     path_to_win: pathToWin,

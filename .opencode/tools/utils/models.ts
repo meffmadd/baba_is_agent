@@ -43,7 +43,6 @@ export interface ReachableEntity {
 
 export interface GameInsights {
   active_rules: Rule[];
-  reachable_entities: ReachableEntity[];
   you_positions: { x: number; y: number }[];
   win_positions: { x: number; y: number }[];
   path_to_win: { moves: Direction[]; goal: string } | null;
