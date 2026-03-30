@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { parseGameState, applyMove } from "../tools/utils/base.js";
 import type { Direction } from "../tools/utils/base.js";
-import { blockedEntities, aStar, convertPathToMoves } from "../tools/utils/path_finding.js";
+import { blockedEntities, aStar, convertPathToMoves, shortestPath } from "../tools/utils/path_finding.js";
 
 const EXPECTED_REACHABLE = 20;
 
@@ -42,6 +42,24 @@ function canReach(gameState: string, start: [number, number], goal: [number, num
   return false;
 }
 
+function testMultiYouShortestPath(gameState: string) {
+  const flags = findEntity(gameState, "flag");
+  if (flags.length === 0) {
+    console.log("FAIL: No flag found");
+    process.exit(1);
+  }
+  const flag = flags[0]!;
+  
+  const result = shortestPath(gameState, [flag.x, flag.y], "left");
+  
+  if (result.length !== 2 || result[0] !== "left" || result[1] !== "left") {
+    console.log(`FAIL: Expected ["left", "left"], got [${result.map(r => `"${r}"`).join(", ")}]`);
+    process.exit(1);
+  }
+  
+  console.log("PASS: Shortest path with multiple YOU positions correctly returns shortest path");
+}
+
 async function main() {
   if (!fs.existsSync(FIXTURE_PATH)) {
     console.error(`Fixture not found: ${FIXTURE_PATH}`);
@@ -74,6 +92,8 @@ async function main() {
     console.log(`FAIL: Expected ${EXPECTED_REACHABLE}, got ${reachable}`);
     process.exit(1);
   }
+  
+  testMultiYouShortestPath(gameState);
 }
 
 main().catch((error) => {

@@ -210,7 +210,9 @@ export function shortestPath(
   }
 
   const youPositions = getStatePositions(gameState, "you");
-
+  
+  let shortestMoves: Direction[] | null = null;
+  
   for (const you of youPositions) {
     const youCoord: [number, number] = [you[0] - 1, you[1] - 1];
     const path = aStar(blocked, youCoord, goalPrev);
@@ -220,10 +222,14 @@ export function shortestPath(
     }
 
     const moves = convertPathToMoves(path);
-    return [...moves, lastMove];
+    const fullPath = [...moves, lastMove];
+    
+    if (shortestMoves === null || fullPath.length < shortestMoves.length) {
+      shortestMoves = fullPath;
+    }
   }
 
-  return [];
+  return shortestMoves ?? [];
 }
 
 export function reachableEntities(
