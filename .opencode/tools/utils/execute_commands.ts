@@ -273,6 +273,13 @@ export async function executeCommands(commandsStr: string, returnInsights: boole
     // Include diff to show what actually happened
     const youPositions = getStatePositions(await getGameState(), "you");
     const winPositions = getStatePositions(await getGameState(), "win");
+    
+    // Check if YOU entity was lost
+    let message = `Partial execution. Commands may have partially executed.`;
+    if (youPositions.length === 0) {
+      message += " Warning: No YOU entity found! You may have broken the 'X IS YOU' rule. Options: 1) Use restart_level to restart the level 2) Use undo_multiple(n=1) to undo the last move and restore YOU";
+    }
+    
     const data: CommandExecutionData & { diff: StateDiff } = {
       executed: validCmds,
       active_rules: afterRules,
@@ -283,7 +290,7 @@ export async function executeCommands(commandsStr: string, returnInsights: boole
     const response: ToolResponse<typeof data> = {
       success: false,
       data,
-      message: `Partial execution. Commands may have partially executed.`
+      message
     };
     return JSON.stringify(response);
   }
@@ -302,6 +309,14 @@ export async function executeCommands(commandsStr: string, returnInsights: boole
   const youPositions = getStatePositions(gameState, "you");
   const winPositions = getStatePositions(gameState, "win");
   
+  // Check if YOU entity was lost
+  let message = `Executed ${validCmds.length} command(s)`;
+  let success = true;
+  if (youPositions.length === 0) {
+    success = false;
+    message += " Warning: No YOU entity found! You may have broken the 'X IS YOU' rule. Options: 1) Use restart_level to restart the level 2) Use undo_multiple(n=1) to undo the last move and restore YOU";
+  }
+  
   const data: CommandExecutionData & { diff: StateDiff } = {
     executed: validCmds,
     active_rules: rules,
@@ -311,9 +326,9 @@ export async function executeCommands(commandsStr: string, returnInsights: boole
   };
   
   const response: ToolResponse<typeof data> = {
-    success: true,
+    success,
     data,
-    message: `Executed ${validCmds.length} command(s)`
+    message
   };
   
   return JSON.stringify(response);
