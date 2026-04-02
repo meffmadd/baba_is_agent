@@ -74,9 +74,9 @@ async function printGameInsights() {
   }
   console.log();
   
-  console.log("Manipulable Rule Text Blocks:");
-  for (const rule of insights.manipulable_rules) {
-    console.log(`  ${rule.text} at (${rule.position.x}, ${rule.position.y})`);
+  console.log("Text Entities:");
+  for (const entity of insights.text_entities) {
+    console.log(`  ${entity.text} at (${entity.position.x}, ${entity.position.y})`);
   }
 }
 

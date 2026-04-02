@@ -30,7 +30,7 @@ export interface Rule {
   state: string;
 }
 
-export interface ManipulableRule {
+export interface TextEntity {
   text: string;
   position: { x: number; y: number };
 }
@@ -46,7 +46,7 @@ export interface GameInsights {
   you_positions: { x: number; y: number }[];
   win_positions: { x: number; y: number }[];
   path_to_win: { moves: Direction[]; goal: string } | null;
-  manipulable_rules: ManipulableRule[];
+  text_entities: TextEntity[];
 }
 
 // Standardized Tool Response Format
