@@ -398,7 +398,7 @@ export async function undoMultiple(n: number, returnInsights: boolean = true): P
   fs.writeFileSync(cmdPath, luaContent);
 
   // Wait for undo command to execute
-  await sleep(500);
+  await waitForCommandExecution(cmdFileNum, 2);
 
   // Verify game is responding by reading state
   try {
