@@ -44,7 +44,7 @@ function popHeap(heap: PriorityQueueItem[]): PriorityQueueItem | undefined {
 
 export function blockedEntities(gameState: string, avoidText: boolean = true): number[][] {
   const rules = getRules(gameState);
-  const blockedStates: [string | null, string][] = [[null, "stop"], [null, "defeat"], ["melt", "hot"]];
+  const blockedStates: [string | null, string][] = [[null, "stop"], [null, "defeat"], [null, "sink"], ["melt", "hot"]];
   const yous = rules.filter((r) => r.state === "you").map((r) => r.entity);
   const matrix = parseGameState(gameState);
 

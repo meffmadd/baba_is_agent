@@ -17,7 +17,7 @@
   },
   "sink": {
     "title": "SINK Rule",
-    "content": "SINK rule explanation:\nWhen a YOU object touches an object with SINK, both objects are destroyed. This can be used to remove obstacles or create new paths."
+    "content": "SINK rule explanation:\nWhen an object touches an object with SINK, both are destroyed. You can push objects into SINK to destroy them and clear paths."
   },
   "win": {
     "title": "WIN Rule",
