@@ -96,7 +96,7 @@ export async function getGameState(active_only: boolean = false): Promise<string
 export async function getGameStateAsJson(active_only: boolean = false): Promise<GameStateData> {
   const { grid, width, height } = parseGameStateGrid(active_only);
   
-  const entities: { type: string; x: number; y: number }[] = [];
+  const entities: Record<string, { x: number; y: number }[]> = {};
   
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -104,17 +104,18 @@ export async function getGameStateAsJson(active_only: boolean = false): Promise<
       if (cell) {
         const cellEntities = cell.split("<");
         for (const entity of cellEntities) {
-          entities.push({ type: entity, x: x + 1, y: y + 1 });
+          if (!entities[entity]) {
+            entities[entity] = [];
+          }
+          entities[entity].push({ x: x + 1, y: y + 1 });
         }
       }
     }
   }
   
   return {
-    grid: {
-      dimensions: { width, height },
-      entities
-    }
+    dimensions: { width, height },
+    entities
   };
 }
 

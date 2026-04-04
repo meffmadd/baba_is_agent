@@ -1,7 +1,7 @@
 // Interactive Baba Is You CLI - Arrow key recorder with tool output display
 import * as fs from "fs";
 import * as path from "path";
-import { getRawGameState } from "../tools/utils/get_game_state.js";
+import { getRawGameState, getGameStateAsJson } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
 import { executeCommands, restartLevel, undoMultiple } from "../tools/utils/execute_commands.js";
 
@@ -111,18 +111,24 @@ async function checkWinStatus(): Promise<{ won: boolean; level_id: string; messa
 async function printToolOutputs(includeExecuteResult: string | null = null) {
   console.log("\n" + "=".repeat(70));
   
-  // 1. Game Insights
+  // 1. Game State (JSON format)
+  console.log(`=== Game State (active_only: ${showActiveOnly}) ===`);
+  const gameState = await getGameStateAsJson(showActiveOnly);
+  console.log(JSON.stringify(gameState, null, 2));
+  
+  // 2. Game Insights
+  console.log("\n" + "=".repeat(70));
   console.log("=== Game Insights ===");
   const insights = await getGameInsights();
   console.log(JSON.stringify(insights, null, 2));
   
-  // 2. Check Win Status
+  // 3. Check Win Status
   console.log("\n" + "=".repeat(70));
   console.log("=== Win Status ===");
   const winStatus = await checkWinStatus();
   console.log(JSON.stringify(winStatus, null, 2));
   
-  // 3. Execute Commands Result (if available)
+  // 4. Execute Commands Result (if available)
   if (includeExecuteResult) {
     console.log("\n" + "=".repeat(70));
     console.log("=== Execute Commands Result ===");
@@ -130,7 +136,7 @@ async function printToolOutputs(includeExecuteResult: string | null = null) {
     console.log(JSON.stringify(parsed, null, 2));
   }
   
-  // 4. Compact Game Grid (replaces get_game_state) - shown last
+  // 5. Compact Game Grid (replaces get_game_state) - shown last
   console.log("\n" + "=".repeat(70));
   await printCompactGrid();
   
@@ -139,6 +145,7 @@ async function printToolOutputs(includeExecuteResult: string | null = null) {
 
 // Command buffer
 let commandBuffer: string[] = [];
+let showActiveOnly: boolean = false;
 
 // Convert arrow key to command
 function arrowToCommand(key: string): string | null {
@@ -177,6 +184,7 @@ function showHeader() {
   console.log("  r          = Restart level");
   console.log("  u          = Undo last move");
   console.log("  c          = Clear command buffer");
+  console.log("  a          = Toggle active_only (show only entities with rules)");
   console.log("  q          = Quit");
   console.log("-".repeat(70));
 }
@@ -243,6 +251,16 @@ function setupInput(): Promise<void> {
       // c to clear buffer
       if (key === "c") {
         commandBuffer = [];
+        displayBuffer();
+        return;
+      }
+      
+      // a to toggle active_only
+      if (key === "a") {
+        showActiveOnly = !showActiveOnly;
+        console.log(`\n\nToggled active_only to: ${showActiveOnly}`);
+        showHeader();
+        await printToolOutputs();
         displayBuffer();
         return;
       }
