@@ -9,7 +9,6 @@ permission:
   execute_game_commands: allow
   restart_level: allow
   game_insights: allow
-  augment_moves: allow
   shortest_path: allow
   undo_multiple: allow
   game_rules: deny
