@@ -56,13 +56,23 @@ export interface ToolResponse<T = unknown> {
 }
 
 // Game State JSON Data Structure
-export interface GameStateData {
+export interface GameStateDataEntities {
   dimensions: {
     width: number;
     height: number;
   };
   entities: Record<string, { x: number; y: number }[]>;
 }
+
+export interface GameStateDataGrid {
+  dimensions: {
+    width: number;
+    height: number;
+  };
+  grid: string[][];
+}
+
+export type GameStateData = GameStateDataEntities | GameStateDataGrid;
 
 // Command Execution Data Structure
 export interface CommandExecutionData {

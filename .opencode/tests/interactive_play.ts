@@ -1,7 +1,7 @@
 // Interactive Baba Is You CLI - Arrow key recorder with tool output display
 import * as fs from "fs";
 import * as path from "path";
-import { getRawGameState, getGameStateAsJson } from "../tools/utils/get_game_state.js";
+import { getRawGameState, getGameStateAsJson, getGameStateAsGrid } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
 import { executeCommands, restartLevel, undoMultiple } from "../tools/utils/execute_commands.js";
 
@@ -112,9 +112,20 @@ async function printToolOutputs(includeExecuteResult: string | null = null) {
   console.log("\n" + "=".repeat(70));
   
   // 1. Game State (JSON format)
-  console.log(`=== Game State (active_only: ${showActiveOnly}) ===`);
-  const gameState = await getGameStateAsJson(showActiveOnly);
-  console.log(JSON.stringify(gameState, null, 2));
+  console.log(`=== Game State (active_only: ${showActiveOnly}, format: ${showGridFormat ? 'grid' : 'entities'}) ===`);
+  if (showGridFormat) {
+    const gameState = await getGameStateAsGrid(showActiveOnly);
+    console.log(JSON.stringify({ dimensions: gameState.dimensions }, null, 2));
+    console.log("grid:");
+    for (let y = 0; y < gameState.grid.length; y++) {
+      const row = gameState.grid[y];
+      const formattedRow = row.map(cell => `"${cell}"`).join(", ");
+      console.log(`  [${formattedRow}]`);
+    }
+  } else {
+    const gameState = await getGameStateAsJson(showActiveOnly);
+    console.log(JSON.stringify(gameState, null, 2));
+  }
   
   // 2. Game Insights
   console.log("\n" + "=".repeat(70));
@@ -146,6 +157,7 @@ async function printToolOutputs(includeExecuteResult: string | null = null) {
 // Command buffer
 let commandBuffer: string[] = [];
 let showActiveOnly: boolean = false;
+let showGridFormat: boolean = false;
 
 // Convert arrow key to command
 function arrowToCommand(key: string): string | null {
@@ -185,6 +197,7 @@ function showHeader() {
   console.log("  u          = Undo last move");
   console.log("  c          = Clear command buffer");
   console.log("  a          = Toggle active_only (show only entities with rules)");
+  console.log("  f          = Toggle format (entities/grid)");
   console.log("  q          = Quit");
   console.log("-".repeat(70));
 }
@@ -259,6 +272,16 @@ function setupInput(): Promise<void> {
       if (key === "a") {
         showActiveOnly = !showActiveOnly;
         console.log(`\n\nToggled active_only to: ${showActiveOnly}`);
+        showHeader();
+        await printToolOutputs();
+        displayBuffer();
+        return;
+      }
+      
+      // f to toggle format
+      if (key === "f") {
+        showGridFormat = !showGridFormat;
+        console.log(`\n\nToggled format to: ${showGridFormat ? 'grid' : 'entities'}`);
         showHeader();
         await printToolOutputs();
         displayBuffer();

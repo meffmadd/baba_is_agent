@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { getRules } from "./base.js";
-import type { GameStateData } from "./models.js";
+import type { GameStateDataEntities, GameStateDataGrid } from "./models.js";
 
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
 const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");
@@ -93,11 +93,11 @@ export async function getGameState(active_only: boolean = false): Promise<string
   return buildFormattedOutput(grid, width, height);
 }
 
-export async function getGameStateAsJson(active_only: boolean = false): Promise<GameStateData> {
+export async function getGameStateAsJson(active_only: boolean = false): Promise<GameStateDataEntities> {
   const { grid, width, height } = parseGameStateGrid(active_only);
-  
+
   const entities: Record<string, { x: number; y: number }[]> = {};
-  
+
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const cell = grid[y][x];
@@ -112,10 +112,19 @@ export async function getGameStateAsJson(active_only: boolean = false): Promise<
       }
     }
   }
-  
+
   return {
     dimensions: { width, height },
     entities
+  };
+}
+
+export async function getGameStateAsGrid(active_only: boolean = false): Promise<GameStateDataGrid> {
+  const { grid, width, height } = parseGameStateGrid(active_only);
+
+  return {
+    dimensions: { width, height },
+    grid
   };
 }
 
