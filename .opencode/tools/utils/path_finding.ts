@@ -1,5 +1,5 @@
-import { type Direction, getRules, parseGameState, applyMove, getStatePositions, gameStateCoords } from "./base.js";
-import type { Rule, ReachableEntity } from "./models.js";
+import { type Direction, getRules, getRulesFromGrid, parseGameState, applyMove, getStatePositions, getStatePositionsFromGrid, gameStateCoords } from "./base.js";
+import type { Rule, ReachableEntity, GameStateDataEntities } from "./models.js";
 
 interface PriorityQueueItem {
   priority: number;
@@ -42,19 +42,21 @@ function popHeap(heap: PriorityQueueItem[]): PriorityQueueItem | undefined {
   return result;
 }
 
-export function blockedEntities(gameState: string, avoidText: boolean = true): number[][] {
-  const rules = getRules(gameState);
+function calculateBlockedEntities(
+  grid: string[][],
+  rules: Rule[],
+  avoidText: boolean
+): number[][] {
   const blockedStates: [string | null, string][] = [[null, "stop"], [null, "defeat"], [null, "sink"], ["melt", "hot"]];
   const yous = rules.filter((r) => r.state === "you").map((r) => r.entity);
-  const matrix = parseGameState(gameState);
 
   const blockedMatrix: number[][] = [];
 
-  for (let y = 0; y < matrix.length; y++) {
+  for (let y = 0; y < grid.length; y++) {
     const rowBlocked: number[] = [];
-    for (let x = 0; x < matrix[y]!.length; x++) {
-      const entity = matrix[y]![x]!;
-      const entities = entity.split("<");
+    for (let x = 0; x < grid[y]!.length; x++) {
+      const cell = grid[y]![x] || "";
+      const entities = cell.split("<");
       let blocked = 0;
 
       for (const e of entities) {
@@ -79,6 +81,17 @@ export function blockedEntities(gameState: string, avoidText: boolean = true): n
     blockedMatrix.push(rowBlocked);
   }
   return blockedMatrix;
+}
+
+export function blockedEntities(gameState: string, avoidText: boolean = true): number[][] {
+  const rules = getRules(gameState);
+  const matrix = parseGameState(gameState);
+  return calculateBlockedEntities(matrix, rules, avoidText);
+}
+
+export function blockedEntitiesFromGrid(grid: string[][]): number[][] {
+  const rules = getRulesFromGrid(grid);
+  return calculateBlockedEntities(grid, rules, true);
 }
 
 function heuristic(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -191,17 +204,16 @@ export function convertPathToMoves(path: Node[]): Direction[] {
   return diffs.map((d) => directionLookup[`${d.x},${d.y}`] as Direction);
 }
 
-export function shortestPath(
-  gameState: string,
+function calculateShortestPath(
+  blocked: number[][],
+  youPositions: { x: number; y: number }[],
   goal: { x: number; y: number },
   lastMove: Direction
 ): Direction[] {
   const goalCoord: { x: number; y: number } = { x: goal.x - 1, y: goal.y - 1 };
   const goalPrev = applyMove(goalCoord, lastMove, true);
-  const blocked = blockedEntities(gameState);
-  const blockedNoText = blockedEntities(gameState, false);
 
-  if (blockedNoText[goalCoord.y]?.[goalCoord.x]) {
+  if (blocked[goalCoord.y]?.[goalCoord.x]) {
     return [];
   }
 
@@ -209,10 +221,8 @@ export function shortestPath(
     return [];
   }
 
-  const youPositions = getStatePositions(gameState, "you");
-  
   let shortestMoves: Direction[] | null = null;
-  
+
   for (const you of youPositions) {
     const youCoord: { x: number; y: number } = { x: you.x - 1, y: you.y - 1 };
     const path = aStar(blocked, youCoord, goalPrev);
@@ -223,13 +233,34 @@ export function shortestPath(
 
     const moves = convertPathToMoves(path);
     const fullPath = [...moves, lastMove];
-    
+
     if (shortestMoves === null || fullPath.length < shortestMoves.length) {
       shortestMoves = fullPath;
     }
   }
 
   return shortestMoves ?? [];
+}
+
+export function shortestPath(
+  gameState: string,
+  goal: { x: number; y: number },
+  lastMove: Direction
+): Direction[] {
+  const blocked = blockedEntities(gameState);
+  const youPositions = getStatePositions(gameState, "you");
+  return calculateShortestPath(blocked, youPositions, goal, lastMove);
+}
+
+export function shortestPathFromGrid(
+  gameStateJson: GameStateDataEntities,
+  grid: string[][],
+  goal: { x: number; y: number },
+  lastMove: Direction
+): Direction[] {
+  const blocked = blockedEntitiesFromGrid(grid);
+  const youPositions = getStatePositionsFromGrid(gameStateJson, grid, "you");
+  return calculateShortestPath(blocked, youPositions, goal, lastMove);
 }
 
 export function reachableEntities(

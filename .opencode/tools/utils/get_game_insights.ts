@@ -1,14 +1,15 @@
-import { getGameState } from "./get_game_state.js";
-import { getRules, getStatePositions, type Direction } from "./base.js";
-import { shortestPath } from "./path_finding.js";
-import type { GameInsights } from "./models.js";
+import { getGameStateAsJson, getRawGameState } from "./get_game_state.js";
+import { getRulesFromGrid, getStatePositionsFromGrid, type Direction } from "./base.js";
+import { shortestPathFromGrid } from "./path_finding.js";
+import type { GameInsights, GameStateDataEntities } from "./models.js";
 
 export async function getGameInsights(): Promise<GameInsights> {
-  const gameState = await getGameState();
+  const gameState = await getGameStateAsJson();
+  const rawGrid = await getRawGameState();
 
-  const rules = getRules(gameState);
-  const youPositions = getStatePositions(gameState, "you");
-  const winPositions = getStatePositions(gameState, "win");
+  const rules = getRulesFromGrid(rawGrid.grid);
+  const youPositions = getStatePositionsFromGrid(gameState, rawGrid.grid, "you");
+  const winPositions = getStatePositionsFromGrid(gameState, rawGrid.grid, "win");
 
   let pathToWin = null;
 
@@ -17,7 +18,7 @@ export async function getGameInsights(): Promise<GameInsights> {
     let shortestMoves: Direction[] | null = null;
 
     for (const lastMove of directions) {
-      const path = shortestPath(gameState, winPositions[0]!, lastMove);
+      const path = shortestPathFromGrid(gameState, rawGrid.grid, winPositions[0]!, lastMove);
       if (path.length > 0) {
         if (shortestMoves === null || path.length < shortestMoves.length) {
           shortestMoves = path;

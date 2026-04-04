@@ -1,4 +1,4 @@
-import { Rule } from "./models.js";
+import { Rule, type GameStateDataEntities } from "./models.js";
 
 const RELEVANT_ENTITIES = ["baba", "rock", "flag", "wall", "water"];
 
@@ -79,8 +79,12 @@ function rulesFromRow(row: string): Rule[] {
 
 export function getRules(gameState: string): Rule[] {
   const matrix = parseGameState(gameState);
-  const cells = matrix.map((row) =>
-    row.map((c) => (c.includes("text_") ? c : ""))
+  return getRulesFromGrid(matrix);
+}
+
+export function getRulesFromGrid(grid: string[][]): Rule[] {
+  const cells = grid.map((row) =>
+    row.map((c) => (c && c.includes("text_") ? c : ""))
   );
 
   const rowRules = new Set<Rule>();
@@ -113,6 +117,20 @@ function getCoordsOfElement(gameState: string, target: string): { x: number; y: 
   return coords;
 }
 
+function getCoordsOfElementFromGrid(grid: string[][], target: string): { x: number; y: number }[] {
+  const coords: { x: number; y: number }[] = [];
+
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y]!.length; x++) {
+      const cell = grid[y]![x];
+      if (cell && cell.includes(target) && !cell.includes("text_")) {
+        coords.push({ x: x + 1, y: y + 1 });
+      }
+    }
+  }
+  return coords;
+}
+
 export function getStatePositions(
   gameState: string,
   state: string
@@ -125,6 +143,23 @@ export function getStatePositions(
   }
 
   return getCoordsOfElement(gameState, matchingRules[0]!.entity);
+}
+
+export function getStatePositionsFromGrid(
+  gameStateJson: GameStateDataEntities,
+  grid: string[][],
+  state: string
+): { x: number; y: number }[] {
+  const rules = getRulesFromGrid(grid);
+  const matchingRules = rules.filter((r) => r.state === state);
+
+  if (matchingRules.length === 0) {
+    return [];
+  }
+
+  // Get positions directly from the JSON entities data
+  const entityName = matchingRules[0]!.entity;
+  return gameStateJson.entities[entityName] || [];
 }
 
 export function getTextBlockPositions(gameState: string): { x: number; y: number; text: string }[] {
