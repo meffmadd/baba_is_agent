@@ -185,6 +185,29 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function checkWinStatus(): boolean {
+  try {
+    const content = fs.readFileSync(STATE_PATH, "utf-8");
+    let currentSection = "";
+    
+    for (const line of content.split("\n")) {
+      const trimmedLine = line.trim();
+      
+      if (trimmedLine.startsWith("[") && trimmedLine.endsWith("]")) {
+        currentSection = trimmedLine.slice(1, -1);
+        continue;
+      }
+      
+      if (currentSection === "status" && trimmedLine.startsWith("level_won=")) {
+        return trimmedLine.split("=")[1].trim() === "true";
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 async function waitForCommandExecution(cmdFileNum: number, maxRetries: number = 0): Promise<boolean> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const startTime = Date.now();
@@ -274,26 +297,28 @@ export async function executeCommands(commandsStr: string, returnInsights: boole
     const youPositions = getStatePositions(await getGameState(), "you");
     const winPositions = getStatePositions(await getGameState(), "win");
     
-    // Check if YOU entity was lost
-    let message = `Partial execution. Commands may have partially executed.`;
-    if (youPositions.length === 0) {
-      message += " Warning: No YOU entity found! You may have broken the 'X IS YOU' rule. Options: 1) Use restart_level to restart the level 2) Use undo_multiple(n=1) to undo the last move and restore YOU";
-    }
-    
-    const data: CommandExecutionData & { diff: StateDiff } = {
-      executed: validCmds,
-      active_rules: afterRules,
-      you_positions: youPositions,
-      win_positions: winPositions,
-      diff
-    };
-    const response: ToolResponse<typeof data> = {
-      success: false,
-      data,
-      message
-    };
-    return JSON.stringify(response);
+  // Check if YOU entity was lost and win status
+  const levelWon = checkWinStatus();
+  let message = `Partial execution. Commands may have partially executed.`;
+  if (youPositions.length === 0) {
+    message += " Warning: No YOU entity found! You may have broken the 'X IS YOU' rule. Options: 1) Use restart_level to restart the level 2) Use undo_multiple(n=1) to undo the last move and restore YOU";
   }
+  
+  const data: CommandExecutionData & { diff: StateDiff } = {
+    executed: validCmds,
+    active_rules: afterRules,
+    you_positions: youPositions,
+    win_positions: winPositions,
+    level_won: levelWon,
+    diff
+  };
+  const response: ToolResponse<typeof data> = {
+    success: false,
+    data,
+    message
+  };
+  return JSON.stringify(response);
+}
   
   if (!returnInsights) {
     const response: ToolResponse<{ executed: string[]; diff: StateDiff }> = {
@@ -308,11 +333,14 @@ export async function executeCommands(commandsStr: string, returnInsights: boole
   const rules = getRules(gameState);
   const youPositions = getStatePositions(gameState, "you");
   const winPositions = getStatePositions(gameState, "win");
+  const levelWon = checkWinStatus();
   
-  // Check if YOU entity was lost
+  // Check if YOU entity was lost or level won
   let message = `Executed ${validCmds.length} command(s)`;
   let success = true;
-  if (youPositions.length === 0) {
+  if (levelWon) {
+    message = "Level won!";
+  } else if (youPositions.length === 0) {
     success = false;
     message += " Warning: No YOU entity found! You may have broken the 'X IS YOU' rule. Options: 1) Use restart_level to restart the level 2) Use undo_multiple(n=1) to undo the last move and restore YOU";
   }
@@ -322,6 +350,7 @@ export async function executeCommands(commandsStr: string, returnInsights: boole
     active_rules: rules,
     you_positions: youPositions,
     win_positions: winPositions,
+    level_won: levelWon,
     diff
   };
   
@@ -366,10 +395,12 @@ export async function restartLevel(returnInsights: boolean = true): Promise<stri
     const rules = getRules(gameState);
     const youPositions = getStatePositions(gameState, "you");
     const winPositions = getStatePositions(gameState, "win");
+    const levelWon = checkWinStatus();
     const data: LevelControlData = {
       active_rules: rules,
       you_positions: youPositions,
       win_positions: winPositions,
+      level_won: levelWon,
     };
     const response: ToolResponse<LevelControlData> = {
       success: true,
@@ -424,10 +455,12 @@ export async function undoMultiple(n: number, returnInsights: boolean = true): P
     const rules = getRules(gameState);
     const youPositions = getStatePositions(gameState, "you");
     const winPositions = getStatePositions(gameState, "win");
+    const levelWon = checkWinStatus();
     const data: LevelControlData = {
       active_rules: rules,
       you_positions: youPositions,
       win_positions: winPositions,
+      level_won: levelWon,
     };
     const response: ToolResponse<LevelControlData> = {
       success: true,

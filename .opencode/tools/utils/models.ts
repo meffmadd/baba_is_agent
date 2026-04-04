@@ -80,6 +80,7 @@ export interface CommandExecutionData {
   active_rules: Rule[];
   you_positions: { x: number; y: number }[];
   win_positions: { x: number; y: number }[];
+  level_won: boolean;
 }
 
 // Shortest Path Data Structure
@@ -92,6 +93,7 @@ export interface LevelControlData {
   active_rules: Rule[];
   you_positions: { x: number; y: number }[];
   win_positions: { x: number; y: number }[];
+  level_won: boolean;
 }
 
 // Position change tracking
