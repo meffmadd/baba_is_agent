@@ -72,12 +72,6 @@ async function printGameInsights() {
   } else {
     console.log("Path to Win: No path found");
   }
-  console.log();
-  
-  console.log("Text Entities:");
-  for (const entity of insights.text_entities) {
-    console.log(`  ${entity.text} at (${entity.position.x}, ${entity.position.y})`);
-  }
 }
 
 async function main() {

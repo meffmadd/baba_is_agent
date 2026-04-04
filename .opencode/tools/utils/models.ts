@@ -46,7 +46,6 @@ export interface GameInsights {
   you_positions: { x: number; y: number }[];
   win_positions: { x: number; y: number }[];
   path_to_win: { moves: Direction[]; goal: string } | null;
-  text_entities: TextEntity[];
 }
 
 // Standardized Tool Response Format

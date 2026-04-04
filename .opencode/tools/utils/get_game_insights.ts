@@ -1,7 +1,7 @@
 import { getGameState } from "./get_game_state.js";
-import { getRules, getStatePositions, getTextBlockPositions, type Direction } from "./base.js";
+import { getRules, getStatePositions, type Direction } from "./base.js";
 import { shortestPath } from "./path_finding.js";
-import type { GameInsights, TextEntity } from "./models.js";
+import type { GameInsights } from "./models.js";
 
 export async function getGameInsights(): Promise<GameInsights> {
   const gameState = await getGameState();
@@ -33,17 +33,10 @@ export async function getGameInsights(): Promise<GameInsights> {
     }
   }
 
-  const textBlocks = getTextBlockPositions(gameState);
-  const textEntities: TextEntity[] = textBlocks.map(({ x, y, text }) => ({
-    text,
-    position: { x, y },
-  }));
-
   return {
     active_rules: rules,
     you_positions: youPositions,
     win_positions: winPositions,
     path_to_win: pathToWin,
-    text_entities: textEntities,
   };
 }
