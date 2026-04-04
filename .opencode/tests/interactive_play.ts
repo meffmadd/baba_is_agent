@@ -1,12 +1,7 @@
 // Interactive Baba Is You CLI - Arrow key recorder with tool output display
-import * as fs from "fs";
-import * as path from "path";
 import { getRawGameState, getGameStateAsJson, getGameStateAsGrid } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
 import { executeCommands, restartLevel, undoMultiple } from "../tools/utils/execute_commands.js";
-
-const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
-const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");
 
 // Entity character mapping for compact display
 function getEntityChar(entity: string): string {
@@ -60,53 +55,6 @@ async function printCompactGrid() {
   console.log("      +=text_win, .=text_stop, x=text_defeat, p=text_push");
 }
 
-// Check win status
-async function checkWinStatus(): Promise<{ won: boolean; level_id: string; message: string }> {
-  try {
-    const content = fs.readFileSync(STATE_PATH, "utf-8");
-    
-    let levelWon = false;
-    let levelId = "";
-    let currentSection = "";
-    
-    for (const line of content.split("\n")) {
-      const trimmedLine = line.trim();
-      
-      if (trimmedLine.startsWith("[") && trimmedLine.endsWith("]")) {
-        currentSection = trimmedLine.slice(1, -1);
-        continue;
-      }
-      
-      if (currentSection === "status" && trimmedLine.startsWith("level_won=")) {
-        levelWon = trimmedLine.split("=")[1].trim() === "true";
-      }
-      if (trimmedLine.startsWith("levelid=")) {
-        levelId = trimmedLine.split("=")[1].trim();
-      }
-    }
-    
-    if (levelWon) {
-      return {
-        won: true,
-        level_id: levelId,
-        message: "🎉 Level completed! You can now enter another level.",
-      };
-    } else {
-      return {
-        won: false,
-        level_id: levelId,
-        message: "Level not yet won. Keep trying!",
-      };
-    }
-  } catch (error) {
-    return {
-      won: false,
-      level_id: "",
-      message: `Error checking win status: ${error}`,
-    };
-  }
-}
-
 // Print all tool outputs
 async function printToolOutputs(includeExecuteResult: string | null = null) {
   console.log("\n" + "=".repeat(70));
@@ -133,13 +81,7 @@ async function printToolOutputs(includeExecuteResult: string | null = null) {
   const insights = await getGameInsights();
   console.log(JSON.stringify(insights, null, 2));
   
-  // 3. Check Win Status
-  console.log("\n" + "=".repeat(70));
-  console.log("=== Win Status ===");
-  const winStatus = await checkWinStatus();
-  console.log(JSON.stringify(winStatus, null, 2));
-  
-  // 4. Execute Commands Result (if available)
+  // 3. Execute Commands Result (if available)
   if (includeExecuteResult) {
     console.log("\n" + "=".repeat(70));
     console.log("=== Execute Commands Result ===");

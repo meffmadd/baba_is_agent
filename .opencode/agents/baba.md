@@ -11,7 +11,6 @@ permission:
   game_insights: allow
   augment_moves: allow
   shortest_path: allow
-  check_win_status: allow
   undo_multiple: allow
   game_rules: deny
   enter_level: deny
