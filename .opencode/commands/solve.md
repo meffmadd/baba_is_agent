@@ -56,3 +56,9 @@ Each rule affects objects in the game. Here are all available properties:
 ### SHUT Rule
 
 !`jq -r '.shut.content' help_rules.json`
+
+## Available Tools
+
+The following tools are available for solving the level:
+
+!`.opencode/scripts/get_agent_tools.sh`
