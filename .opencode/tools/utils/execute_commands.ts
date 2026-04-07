@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
-import { getGameState, getRawGameState } from "./get_game_state.js";
-import { getRules, getStatePositions } from "./base.js";
+import { getGameState, getRawGameState, getGameStateAsJson } from "./get_game_state.js";
+import { getRules, getStatePositions, getStatePositionsFromGrid } from "./base.js";
 import type { ToolResponse, CommandExecutionData, LevelControlData, StateDiff, PositionChanges, RuleChanges } from "./models.js";
 import type { Rule } from "./models.js";
 
@@ -208,6 +208,51 @@ function checkWinStatus(): boolean {
   return false;
 }
 
+async function waitForRestartCompletion(cmdFileNum: number): Promise<boolean> {
+  // Wait for initial command execution - after restart, last_processed resets to 0
+  // So we can't reliably use last_processed >= cmdFileNum
+  // Instead, we wait for the restart to complete by detecting state stability
+  
+  const startTime = Date.now();
+  const TIMEOUT_MS = 5000;
+  const POLL_MS = 100;
+  
+  // After restart, last_processed will be 0 (reset by level_start hook)
+  // Wait for either:
+  // 1. last_processed >= cmdFileNum (old behavior, in case restart is async)
+  // 2. last_processed === 0 for at least 3 consecutive reads (restart completed)
+  
+  let zeroCount = 0;
+  
+  while (Date.now() - startTime < TIMEOUT_MS) {
+    const lastProcessed = getLastProcessed();
+    
+    if (lastProcessed >= cmdFileNum) {
+      // Restart may have been processed without reset (oldbehavior)
+      await sleep(200);
+      return true;
+    }
+    
+    if (lastProcessed === 0) {
+      zeroCount++;
+      if (zeroCount >= 3) {
+        // last_processed has been 0 for 3 consecutive reads
+        // This indicates restart completed and level_start reset the counter
+        await sleep(200);
+        return true;
+      }
+    } else {
+      // Reset zero count if we see non-zero value
+      zeroCount = 0;
+    }
+    
+    await sleep(POLL_MS);
+  }
+  
+  // Timeout - check if last_processed is 0 (restart may have completed)
+  return getLastProcessed() === 0;
+}
+
 async function waitForCommandExecution(cmdFileNum: number, maxRetries: number = 0): Promise<boolean> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const startTime = Date.now();
@@ -368,12 +413,14 @@ export async function restartLevel(returnInsights: boolean = true): Promise<stri
   const cmdPath = path.join(COMMANDS_DIR, `${cmdFileNum}.lua`);
   fs.writeFileSync(cmdPath, `command("restart_instant", 1)\n`);
 
-  // Wait for restart command to execute (last_processed counter resets on restart, so we just wait)
-  await sleep(500);
+  const executed = await waitForRestartCompletion(cmdFileNum);
 
   // Verify game is responding by reading state
   try {
     const gameState = await getGameState();
+    const gameStateJson = await getGameStateAsJson();
+    const rawGrid = await getRawGameState();
+    
     if (gameState.length === 0) {
       const errorResponse: ToolResponse<null> = {
         success: false,
@@ -385,16 +432,16 @@ export async function restartLevel(returnInsights: boolean = true): Promise<stri
 
     if (!returnInsights) {
       const response: ToolResponse<null> = {
-        success: true,
+        success: executed,
         data: null,
-        message: "Level restarted successfully"
+        message: executed ? "Level restarted successfully" : "Level restart may have partially completed. Verify state before continuing."
       };
       return JSON.stringify(response);
     }
 
     const rules = getRules(gameState);
-    const youPositions = getStatePositions(gameState, "you");
-    const winPositions = getStatePositions(gameState, "win");
+    const youPositions = getStatePositionsFromGrid(gameStateJson, rawGrid.grid, "you");
+    const winPositions = getStatePositionsFromGrid(gameStateJson, rawGrid.grid, "win");
     const levelWon = checkWinStatus();
     const data: LevelControlData = {
       active_rules: rules,
@@ -403,9 +450,9 @@ export async function restartLevel(returnInsights: boolean = true): Promise<stri
       level_won: levelWon,
     };
     const response: ToolResponse<LevelControlData> = {
-      success: true,
+      success: executed,
       data,
-      message: "Level restarted successfully"
+      message: executed ? "Level restarted successfully" : "Level restart may have partially completed. Verify state before continuing."
     };
     return JSON.stringify(response);
   } catch {
