@@ -1,6 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
-import { getGameStateAsJson, getGameStateAsGrid } from "./utils/get_game_state.js";
-import type { ToolResponse, GameStateData } from "./utils/models.js";
+import { getGameStateFormatted } from "./utils/get_game_state_tool.js";
 
 export default tool({
   description:
@@ -10,17 +9,6 @@ export default tool({
     format: tool.schema.enum(["entities", "grid"]).default("entities").describe("Output format: 'entities' returns entities mapped by name to coordinates, 'grid' returns a 2D array representing the game grid.")
   },
   async execute(args: { active_only: boolean; format: "entities" | "grid" }) {
-    let jsonData: GameStateData;
-    if (args.format === "grid") {
-      jsonData = await getGameStateAsGrid(args.active_only);
-    } else {
-      jsonData = await getGameStateAsJson(args.active_only);
-    }
-    const response: ToolResponse<GameStateData> = {
-      success: true,
-      data: jsonData,
-      message: "Game state retrieved"
-    };
-    return JSON.stringify(response);
+    return await getGameStateFormatted(args.active_only, args.format);
   },
 });

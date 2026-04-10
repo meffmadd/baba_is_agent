@@ -1,9 +1,36 @@
 // Interactive Baba Is You CLI - Arrow key recorder with tool output display
-import { getRawGameState, getGameStateAsJson, getGameStateAsGrid } from "../tools/utils/get_game_state.js";
+import { getRawGameState } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
 import { executeCommands, restartLevel, undoMultiple } from "../tools/utils/execute_commands.js";
+import { getGameStateFormatted } from "../tools/utils/get_game_state_tool.js";
+import { waitForStateSettle } from "../tools/utils/poll_state.js";
 
-// Entity character mapping for compact display
+interface ToolResultData {
+  active_rules?: { entity: string; state: string }[];
+  you_positions?: { x: number; y: number }[];
+  win_positions?: { x: number; y: number }[];
+  level_won?: boolean;
+  success?: boolean;
+  message?: string;
+  diff?: unknown;
+  executed?: string[];
+}
+
+interface ParsedToolResult {
+  success: boolean;
+  data: ToolResultData | null;
+  message: string;
+}
+
+function parseToolResult(toolResult: string | null): ParsedToolResult | null {
+  if (!toolResult) return null;
+  try {
+    return JSON.parse(toolResult) as ParsedToolResult;
+  } catch {
+    return null;
+  }
+}
+
 function getEntityChar(entity: string): string {
   if (!entity) return " ";
   const first = entity.split("<")[0] || "";
@@ -32,9 +59,7 @@ function getEntityChar(entity: string): string {
   return entityMap[first] || first.charAt(0).toUpperCase();
 }
 
-// Print compact game grid
-async function printCompactGrid() {
-  const rawState = await getRawGameState();
+function printCompactGrid(rawState: { grid: string[][]; width: number; height: number }) {
   const { grid, width, height } = rawState;
 
   console.log("\n=== Game Grid ===");
@@ -55,44 +80,71 @@ async function printCompactGrid() {
   console.log("      +=text_win, .=text_stop, x=text_defeat, p=text_push");
 }
 
-// Print all tool outputs
-async function printToolOutputs(includeExecuteResult: string | null = null) {
+async function printToolOutputs(toolResult: string | null = null) {
   console.log("\n" + "=".repeat(70));
-  
+
+  const parsed = parseToolResult(toolResult);
+  const toolData = parsed?.data ?? null;
+
+  let rawState: { grid: string[][]; width: number; height: number };
+
+  if (toolResult !== null) {
+    const pollResult = await waitForStateSettle();
+    rawState = pollResult.rawState;
+  } else {
+    rawState = await getRawGameState();
+  }
+
   // 1. Game State (JSON format)
   console.log(`=== Game State (active_only: ${showActiveOnly}, format: ${showGridFormat ? 'grid' : 'entities'}) ===`);
-  if (showGridFormat) {
-    const gameState = await getGameStateAsGrid(showActiveOnly);
-    console.log(JSON.stringify({ dimensions: gameState.dimensions }, null, 2));
+  const gameStateResult = await getGameStateFormatted(showActiveOnly, showGridFormat ? "grid" : "entities");
+  const gameStateParsed = JSON.parse(gameStateResult);
+  if (showGridFormat && gameStateParsed.data) {
+    const gs = gameStateParsed.data;
+    console.log(JSON.stringify({ dimensions: gs.dimensions }, null, 2));
     console.log("grid:");
-    for (let y = 0; y < gameState.grid.length; y++) {
-      const row = gameState.grid[y];
-      const formattedRow = row.map(cell => `"${cell}"`).join(", ");
+    for (let y = 0; y < gs.grid.length; y++) {
+      const row = gs.grid[y];
+      const formattedRow = row.map((cell: string) => `"${cell}"`).join(", ");
       console.log(`  [${formattedRow}]`);
     }
-  } else {
-    const gameState = await getGameStateAsJson(showActiveOnly);
-    console.log(JSON.stringify(gameState, null, 2));
+  } else if (gameStateParsed.data) {
+    console.log(JSON.stringify(gameStateParsed.data, null, 2));
   }
-  
-  // 2. Game Insights
+
+  // 2. Game Insights (use tool data if available, otherwise fetch)
   console.log("\n" + "=".repeat(70));
   console.log("=== Game Insights ===");
-  const insights = await getGameInsights();
-  console.log(JSON.stringify(insights, null, 2));
-  
-  // 3. Execute Commands Result (if available)
-  if (includeExecuteResult) {
-    console.log("\n" + "=".repeat(70));
-    console.log("=== Execute Commands Result ===");
-    const parsed = JSON.parse(includeExecuteResult);
-    console.log(JSON.stringify(parsed, null, 2));
+
+  if (toolData && toolData.active_rules && toolData.you_positions) {
+    const insights = {
+      success: true,
+      data: {
+        active_rules: toolData.active_rules,
+        you_positions: toolData.you_positions,
+        win_positions: toolData.win_positions || [],
+        path_to_win: null,
+        level_won: toolData.level_won || false
+      },
+      message: "From tool result"
+    };
+    console.log(JSON.stringify(insights, null, 2));
+  } else {
+    const insights = await getGameInsights();
+    console.log(JSON.stringify(insights, null, 2));
   }
-  
-  // 5. Compact Game Grid (replaces get_game_state) - shown last
+
+  // 3. Execute Commands Result (if available)
+  if (toolResult) {
+    console.log("\n" + "=".repeat(70));
+    console.log("=== Tool Result ===");
+    console.log(JSON.stringify(JSON.parse(toolResult), null, 2));
+  }
+
+  // 4. Compact Game Grid - uses the single read from above
   console.log("\n" + "=".repeat(70));
-  await printCompactGrid();
-  
+  printCompactGrid(rawState);
+
   console.log("\n" + "=".repeat(70));
 }
 
@@ -101,18 +153,6 @@ let commandBuffer: string[] = [];
 let showActiveOnly: boolean = false;
 let showGridFormat: boolean = false;
 
-// Convert arrow key to command
-function arrowToCommand(key: string): string | null {
-  switch (key) {
-    case "up": return "up";
-    case "down": return "down";
-    case "left": return "left";
-    case "right": return "right";
-    default: return null;
-  }
-}
-
-// Display current buffer
 function displayBuffer() {
   const display = commandBuffer.map(cmd => {
     switch (cmd) {
@@ -126,7 +166,6 @@ function displayBuffer() {
   process.stdout.write(`\rCommands: [${display || " "}] _                    `);
 }
 
-// Clear screen and show header
 function showHeader() {
   console.clear();
   console.log("=".repeat(70));
@@ -144,18 +183,16 @@ function showHeader() {
   console.log("-".repeat(70));
 }
 
-// Setup raw input handling
 function setupInput(): Promise<void> {
   return new Promise((resolve) => {
     const stdin = process.stdin;
     stdin.setRawMode(true);
     stdin.resume();
     stdin.setEncoding("utf8");
-    
+
     stdin.on("data", async (key: string) => {
       const byte = key.charCodeAt(0);
-      
-      // Ctrl+C or q to quit
+
       if (byte === 3 || key === "q") {
         console.log("\n\nGoodbye!");
         stdin.setRawMode(false);
@@ -163,8 +200,7 @@ function setupInput(): Promise<void> {
         resolve();
         return;
       }
-      
-      // Enter to execute
+
       if (byte === 13) {
         if (commandBuffer.length > 0) {
           console.log("\n\nExecuting commands...");
@@ -180,37 +216,33 @@ function setupInput(): Promise<void> {
         displayBuffer();
         return;
       }
-      
-      // r to restart
+
       if (key === "r") {
         console.log("\n\nRestarting level...");
-        await restartLevel(true);
+        const result = await restartLevel(true);
         commandBuffer = [];
         showHeader();
-        await printToolOutputs();
+        await printToolOutputs(result);
         displayBuffer();
         return;
       }
-      
-      // u to undo
+
       if (key === "u") {
         console.log("\n\nUndoing last move...");
-        await undoMultiple(1, true);
+        const result = await undoMultiple(1, true);
         commandBuffer = [];
         showHeader();
-        await printToolOutputs();
+        await printToolOutputs(result);
         displayBuffer();
         return;
       }
-      
-      // c to clear buffer
+
       if (key === "c") {
         commandBuffer = [];
         displayBuffer();
         return;
       }
-      
-      // a to toggle active_only
+
       if (key === "a") {
         showActiveOnly = !showActiveOnly;
         console.log(`\n\nToggled active_only to: ${showActiveOnly}`);
@@ -219,8 +251,7 @@ function setupInput(): Promise<void> {
         displayBuffer();
         return;
       }
-      
-      // f to toggle format
+
       if (key === "f") {
         showGridFormat = !showGridFormat;
         console.log(`\n\nToggled format to: ${showGridFormat ? 'grid' : 'entities'}`);
@@ -229,32 +260,26 @@ function setupInput(): Promise<void> {
         displayBuffer();
         return;
       }
-      
-      // Arrow keys (escape sequences)
+
       if (byte === 27 && key.length >= 3) {
         const arrowCode = key.charCodeAt(2);
         let arrow: string | null = null;
-        
-        // ANSI escape codes: ESC [ A = up, ESC [ B = down, ESC [ C = right, ESC [ D = left
+
         switch (arrowCode) {
           case 65: arrow = "up"; break;
           case 66: arrow = "down"; break;
           case 67: arrow = "right"; break;
           case 68: arrow = "left"; break;
         }
-        
+
         if (arrow) {
           commandBuffer.push(arrow);
           displayBuffer();
         }
         return;
       }
-      
-      // Also handle wasd
-      if (key === "w") { commandBuffer.push("up"); displayBuffer(); return; }
-      if (key === "s") { commandBuffer.push("down"); displayBuffer(); return; }
-      if (key === "a") { commandBuffer.push("left"); displayBuffer(); return; }
-      if (key === "d") { commandBuffer.push("right"); displayBuffer(); return; }
+
+      // wasd (d already handled by 'a' toggle above, skip conflicts)
     });
   });
 }
