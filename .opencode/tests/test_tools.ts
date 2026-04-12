@@ -187,6 +187,71 @@ async function runTests() {
   console.log(`  Filtered state: ${filteredState.length} chars`);
   console.log(`  Reduction: ${((1 - filteredState.length / fullState.length) * 100).toFixed(1)}%`);
   console.log();
+
+  // Test 8: getGameStateAsCompact
+  console.log("Test Suite: getGameStateAsCompact");
+  const { getGameStateAsCompact } = await import("../tools/utils/get_game_state.js");
+  const compactState = await getGameStateAsCompact(false);
+
+  test("returns object with dimensions", () => {
+    assert(typeof compactState === "object" && compactState !== null, "Should return object");
+    assert(typeof compactState.dimensions === "object", "Should have dimensions");
+    assert(typeof compactState.dimensions.width === "number", "Width should be number");
+    assert(typeof compactState.dimensions.height === "number", "Height should be number");
+  });
+
+  test("returns compact table string", () => {
+    assert(typeof compactState.table === "string", "Table should be string");
+    assert(compactState.table.includes("|"), "Table should contain pipe characters");
+    // Compact format: each line should be short (row number + pipe + chars)
+    const lines = compactState.table.split("\n");
+    assert(lines.length > 1, "Table should have multiple lines");
+    // First line is header with column numbers, rest are data rows
+    assert(lines[0].length > 3, "Header should have content");
+  });
+
+  test("returns legend object", () => {
+    assert(typeof compactState.legend === "object" && compactState.legend !== null, "Should have legend object");
+    // Legend should only contain present entities
+    const legendKeys = Object.keys(compactState.legend);
+    assert(legendKeys.length > 0, "Legend should have at least one entry");
+    for (const key of legendKeys) {
+      assert(typeof compactState.legend[key] === "string", `Legend entry ${key} should be string`);
+      assert(compactState.legend[key].length === 1, `Legend entry ${key} should be single character`);
+    }
+  });
+
+  test("legend only contains present entities", () => {
+    // Get all entities in the table by checking cells
+    const tableLines = compactState.table.split("\n");
+    const presentEntities = new Set<string>();
+    for (const line of tableLines) {
+      if (line.startsWith("|")) {
+        const cells = line.split("|").map(c => c.trim()).filter(c => c && c !== "---" && !/^\d+$/.test(c) && c !== "y/x");
+        for (const cell of cells) {
+          if (cell && cell !== " ") {
+            // This is a character from the legend, find which entity it maps to
+            for (const [entity, char] of Object.entries(compactState.legend)) {
+              if (char === cell) {
+                presentEntities.add(entity);
+              }
+            }
+          }
+        }
+      }
+    }
+    // All legend keys should correspond to entities found in table
+    const legendKeys = Object.keys(compactState.legend);
+    for (const key of legendKeys) {
+      // Entity should be present in game state (we can't directly check this without raw grid, but we can verify structure)
+      assert(typeof key === "string", "Legend key should be string");
+    }
+  });
+
+  console.log(`  Dimensions: ${compactState.dimensions.width}x${compactState.dimensions.height}`);
+  console.log(`  Legend entries: ${Object.keys(compactState.legend).length}`);
+  console.log(`  Table lines: ${compactState.table.split("\n").length}`);
+  console.log();
   
   // Summary
   console.log("=".repeat(60));

@@ -1,5 +1,5 @@
 // Interactive Baba Is You CLI - Arrow key recorder with tool output display
-import { getRawGameState } from "../tools/utils/get_game_state.js";
+import { getGameStateAsCompact } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
 import { executeCommands, restartLevel, undoMultiple } from "../tools/utils/execute_commands.js";
 import { getGameStateFormatted } from "../tools/utils/get_game_state_tool.js";
@@ -31,53 +31,19 @@ function parseToolResult(toolResult: string | null): ParsedToolResult | null {
   }
 }
 
-function getEntityChar(entity: string): string {
-  if (!entity) return " ";
-  const first = entity.split("<")[0] || "";
-  const entityMap: Record<string, string> = {
-    "baba": "B",
-    "wall": "W",
-    "rock": "R",
-    "flag": "F",
-    "skull": "S",
-    "grass": "g",
-    "flower": "f",
-    "tile": "t",
-    "brick": "b",
-    "text_baba": "b",
-    "text_wall": "w",
-    "text_rock": "r",
-    "text_flag": "f",
-    "text_skull": "s",
-    "text_is": "=",
-    "text_you": "y",
-    "text_win": "+",
-    "text_stop": ".",
-    "text_defeat": "x",
-    "text_push": "p",
-  };
-  return entityMap[first] || first.charAt(0).toUpperCase();
-}
+async function printCompactGrid(active_only: boolean = false) {
+  const compactState = await getGameStateAsCompact(active_only);
 
-function printCompactGrid(rawState: { grid: string[][]; width: number; height: number }) {
-  const { grid, width, height } = rawState;
+  console.log("\n=== Game Grid (Compact) ===");
+  console.log(compactState.table);
 
-  console.log("\n=== Game Grid ===");
-  const header = "    " + Array.from({ length: width }, (_, i) => String((i + 1) % 10)).join(" ");
-  console.log(header);
-  for (let y = 0; y < height; y++) {
-    let rowStr = String(y + 1).padStart(2, " ") + " |";
-    for (let x = 0; x < width; x++) {
-      const cell = grid[y]?.[x] || "";
-      const char = getEntityChar(cell);
-      rowStr += char + "|";
-    }
-    console.log(rowStr);
+  // Print legend from compact state
+  const legendEntries = Object.entries(compactState.legend).map(
+    ([entity, char]) => `${char}=${entity}`
+  );
+  if (legendEntries.length > 0) {
+    console.log("\nLegend: " + legendEntries.join(", "));
   }
-  console.log("\nLegend: B=baba, W=wall, R=rock, F=flag, S=skull");
-  console.log("        g=grass, f=flower, t=tile, b=brick");
-  console.log("Text: b=text_baba, w=text_wall, ==text_is, y=text_you");
-  console.log("      +=text_win, .=text_stop, x=text_defeat, p=text_push");
 }
 
 async function printToolOutputs(toolResult: string | null = null) {
@@ -86,13 +52,9 @@ async function printToolOutputs(toolResult: string | null = null) {
   const parsed = parseToolResult(toolResult);
   const toolData = parsed?.data ?? null;
 
-  let rawState: { grid: string[][]; width: number; height: number };
-
+  // Wait for state to settle if we just executed a command
   if (toolResult !== null) {
-    const pollResult = await waitForStateSettle();
-    rawState = pollResult.rawState;
-  } else {
-    rawState = await getRawGameState();
+    await waitForStateSettle();
   }
 
   // 1. Game State (JSON format)
@@ -141,9 +103,9 @@ async function printToolOutputs(toolResult: string | null = null) {
     console.log(JSON.stringify(JSON.parse(toolResult), null, 2));
   }
 
-  // 4. Compact Game Grid - uses the single read from above
+  // 4. Compact Game Grid
   console.log("\n" + "=".repeat(70));
-  printCompactGrid(rawState);
+  await printCompactGrid(showActiveOnly);
 
   console.log("\n" + "=".repeat(70));
 }

@@ -1,7 +1,41 @@
 import * as fs from "fs";
 import * as path from "path";
 import { getRules } from "./base.js";
-import type { GameStateDataEntities, GameStateDataGrid } from "./models.js";
+import type { GameStateDataEntities, GameStateDataGrid, GameStateDataCompact } from "./models.js";
+
+// Entity to single character mapping for compact display
+const entityMap: Record<string, string> = {
+  "baba": "B",
+  "wall": "W",
+  "rock": "R",
+  "flag": "F",
+  "skull": "S",
+  "grass": "g",
+  "flower": "f",
+  "tile": "t",
+  "brick": "b",
+  "text_baba": "b",
+  "text_wall": "w",
+  "text_rock": "r",
+  "text_flag": "f",
+  "text_skull": "s",
+  "text_is": "=",
+  "text_you": "y",
+  "text_win": "+",
+  "text_stop": ".",
+  "text_defeat": "x",
+  "text_push": "p",
+};
+
+export function getEntityChar(entity: string): string {
+  if (!entity) return " ";
+  const first = entity.split("<")[0] || "";
+  return entityMap[first] || first.charAt(0).toUpperCase();
+}
+
+export function getEntityLegend(): Record<string, string> {
+  return { ...entityMap };
+}
 
 const WORLDS_DIR = "/Users/matthiasmatt/Library/Application Support/Steam/steamapps/common/Baba Is You/Baba Is You.app/Contents/Resources/Data/Worlds/baba";
 const STATE_PATH = path.join(WORLDS_DIR, "world_data.txt");
@@ -169,6 +203,65 @@ export async function getRawGameState(): Promise<{ grid: string[][]; width: numb
   }
   
   return { grid, width: roomSize.width, height: roomSize.height };
+}
+
+function buildMarkdownTable(grid: string[][], width: number, height: number): string {
+  // Build compact header row with | separators
+  // "  |" aligns with data row prefix " 1|" (2 char row label + "|")
+  let header = "  |";
+  for (let x = 0; x < width; x++) {
+    header += String((x + 1) % 10) + "|";
+  }
+  // Remove trailing | from header
+  header = header.slice(0, -1);
+
+  let table = header + "\n";
+
+  // Build data rows with compact formatting - | separator between cells
+  for (let y = 0; y < height; y++) {
+    let row = String(y + 1).padStart(2, " ") + "|";
+    for (let x = 0; x < width; x++) {
+      const cell = grid[y]?.[x] || "";
+      const char = getEntityChar(cell);
+      row += char + "|";
+    }
+    table += row + "\n";
+  }
+
+  return table.replace(/\n+$/, "");
+}
+
+export async function getGameStateAsCompact(active_only: boolean = false): Promise<GameStateDataCompact> {
+  const { grid, width, height } = parseGameStateGrid(active_only);
+  
+  // Collect entities actually present in the grid
+  const presentEntities = new Set<string>();
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const cell = grid[y][x];
+      if (cell) {
+        const cellEntities = cell.split("<");
+        for (const entity of cellEntities) {
+          presentEntities.add(entity);
+        }
+      }
+    }
+  }
+  
+  // Build legend with only present entities
+  const fullLegend = getEntityLegend();
+  const legend: Record<string, string> = {};
+  for (const entity of presentEntities) {
+    legend[entity] = fullLegend[entity] || entity.charAt(0).toUpperCase();
+  }
+  
+  const table = buildMarkdownTable(grid, width, height);
+  
+  return {
+    dimensions: { width, height },
+    table,
+    legend
+  };
 }
 
 if (import.meta.main) {

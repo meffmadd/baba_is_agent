@@ -1,41 +1,34 @@
 // Print game state as compact grid
-import { getRawGameState } from "../tools/utils/get_game_state.js";
+import { getRawGameState, getEntityChar } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
 import { executeCommands } from "../tools/utils/execute_commands.js";
 import { getRules } from "../tools/utils/base.js";
 import { extractEntityPositions, calculateStateDiff } from "../tools/utils/execute_commands.js";
 
-function getEntityChar(entity: string): string {
-  if (!entity) return " ";
-  const first = entity.split("<")[0] || "";
-  const entityMap: Record<string, string> = {
-    "baba": "B",
-    "wall": "W",
-    "rock": "R",
-    "flag": "F",
-    "skull": "S",
-    "grass": "g",
-    "flower": "f",
-    "tile": "t",
-    "brick": "b",
-    "text_baba": "b",
-    "text_wall": "w",
-    "text_rock": "r",
-    "text_flag": "f",
-    "text_skull": "s",
-    "text_is": "=",
-    "text_you": "y",
-    "text_win": "+",
-    "text_stop": ".",
-    "text_defeat": "x",
-    "text_push": "p",
-  };
-  return entityMap[first] || first.charAt(0).toUpperCase();
-}
-
 async function printGameState() {
   const rawState = await getRawGameState();
   const { grid, width, height } = rawState;
+
+  // Collect entities present in the grid
+  const presentEntities = new Set<string>();
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const cell = grid[y]?.[x] || "";
+      if (cell) {
+        const cellEntities = cell.split("<");
+        for (const entity of cellEntities) {
+          presentEntities.add(entity);
+        }
+      }
+    }
+  }
+
+  // Build legend entries for present entities
+  const legendEntries: string[] = [];
+  for (const entity of presentEntities) {
+    const char = getEntityChar(entity);
+    legendEntries.push(`${char}=${entity}`);
+  }
 
   const header = "    " + Array.from({ length: width }, (_, i) => String((i + 1) % 10)).join(" ");
   console.log(header);
@@ -49,9 +42,11 @@ async function printGameState() {
     console.log(rowStr);
   }
   console.log();
-  console.log("Legend: B=baba, W=wall, R=rock, F=flag, S=SKULL, g=grass, f=flower, t=tile, b=brick");
-  console.log("Text objects: lowercase (b=text_baba, w=text_wall, r=text_rock, f=text_flag, s=text_skull)");
-  console.log("Special: ==text_is, y=text_you, +=text_win, .=text_stop, x=text_defeat");
+
+  // Print dynamic legend
+  if (legendEntries.length > 0) {
+    console.log("Legend: " + legendEntries.join(", "));
+  }
 }
 
 async function printGameInsights() {

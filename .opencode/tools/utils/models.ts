@@ -72,7 +72,16 @@ export interface GameStateDataGrid {
   grid: string[][];
 }
 
-export type GameStateData = GameStateDataEntities | GameStateDataGrid;
+export interface GameStateDataCompact {
+  dimensions: {
+    width: number;
+    height: number;
+  };
+  table: string;
+  legend: Record<string, string>;
+}
+
+export type GameStateData = GameStateDataEntities | GameStateDataGrid | GameStateDataCompact;
 
 // Command Execution Data Structure
 export interface CommandExecutionData {
