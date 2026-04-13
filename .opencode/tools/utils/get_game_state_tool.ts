@@ -1,19 +1,17 @@
-import { getGameStateAsJson, getGameStateAsGrid, getGameStateAsCompact } from "./get_game_state.js";
-import type { ToolResponse, GameStateData } from "./models.js";
+import { getGameStateAsJson, getGameStateAsGrid } from "./get_game_state.js";
+import type { ToolResponse, GameStateDataEntities, GameStateDataGrid } from "./models.js";
 
 export async function getGameStateFormatted(
   active_only: boolean = false,
-  format: "entities" | "grid" | "compact" = "entities"
+  format: "entities" | "grid" = "entities"
 ): Promise<string> {
-  let jsonData: GameStateData;
+  let jsonData: GameStateDataEntities | GameStateDataGrid;
   if (format === "grid") {
     jsonData = await getGameStateAsGrid(active_only);
-  } else if (format === "compact") {
-    jsonData = await getGameStateAsCompact(active_only);
   } else {
     jsonData = await getGameStateAsJson(active_only);
   }
-  const response: ToolResponse<GameStateData> = {
+  const response: ToolResponse<GameStateDataEntities | GameStateDataGrid> = {
     success: true,
     data: jsonData,
     message: "Game state retrieved"
