@@ -4,38 +4,46 @@
 
 # Baba Is Agent
 
-Langgraph-based AI agent that plays the puzzle game *[Baba is You](https://store.steampowered.com/app/736260/Baba_Is_You/)*.
+OpenCode AI agent that plays *[Baba Is You](https://store.steampowered.com/app/736260/Baba_Is_You/)*.
 
 Inspired by the [baba_is_eval](https://github.com/lennart-finke/baba_is_eval) repository.
 
-This serves as a playground for developing agents and exploring different approaches.
+## Allowed Tools
+
+- **get_game_state** - Get current game state with entities/grid
+- **execute_game_commands** - Execute movement commands (up, down, left, right, idle)
+- **restart_level** - Restart the current level
+- **game_insights** - Analyze game state, rules, positions, and win path
+- **shortest_path** - A* pathfinding to target position
+- **undo_multiple** - Undo last N moves
+- **todowrite** - Track task progress
 
 ## Setup
 
 Requires macOS with the Steam version of *Baba is You*.
 
-1. Clone **baba_is_eval** to the game's `Data` directory (see [baba_is_eval](https://github.com/lennart-finke/baba_is_eval) for details). The agent requires the MCP server to run.
-
-2. Install dependencies:
+1. Install the Lua mod:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -e .[baba-mcp]
+   ./setup.sh
    ```
 
-3. Create a `.env` file in the project root:
-   ```env
-   API_KEY=<your OpenAI API key>
-   # Optional:
-   MODEL=gpt-4
-   BASE_URL=https://api.openai.com/v1
-   ```
+## Manual Mode
 
-4. Start the game and enter a level.
-
-5. Run the agent:
+1. Start the game and enter a level manually:
    ```bash
-   python main.py
+   python start_game.py
    ```
 
-   This will launch the MCP server and start the agent loop to solve the current level.
+2. Solve the level:
+   ```bash
+   opencode run --command solve --agent baba
+   ```
+
+## Automated Evaluation
+
+Run full automation (game start → level navigation → solver → cleanup):
+
+```bash
+uv run python -m automation.evaluator --level 0-4 --model opencode-go/glm-5.1
+```
+
