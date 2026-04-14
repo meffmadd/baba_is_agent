@@ -2,8 +2,8 @@
 description: Baba Is You game-playing agent. Analyzes game state and makes moves to win.
 permission:
   "*": deny
-  read: allow
-  bash: allow
+  read: deny
+  bash: deny
   todowrite: allow
   get_game_state: allow
   execute_game_commands: allow
