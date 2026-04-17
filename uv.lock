@@ -57,10 +57,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-baba-mcp = [
+automation = [
     { name = "configparser" },
     { name = "fastmcp" },
-    { name = "mcp" },
     { name = "pyautogui" },
 ]
 
@@ -73,16 +72,15 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "configparser", marker = "extra == 'baba-mcp'", specifier = ">=7.2.0" },
-    { name = "fastmcp", marker = "extra == 'baba-mcp'", specifier = ">=2.10.5" },
+    { name = "configparser", marker = "extra == 'automation'", specifier = ">=7.2.0" },
+    { name = "fastmcp", marker = "extra == 'automation'", specifier = ">=2.10.5" },
     { name = "grandalf", specifier = ">=0.8" },
     { name = "langchain", extras = ["openai"], specifier = ">=0.3.26" },
     { name = "langchain-mcp-adapters", specifier = ">=0.1.9" },
     { name = "langgraph", specifier = ">=0.5.2" },
-    { name = "mcp", marker = "extra == 'baba-mcp'", specifier = ">=1.11.0" },
-    { name = "pyautogui", marker = "extra == 'baba-mcp'", specifier = ">=0.9.54" },
+    { name = "pyautogui", marker = "extra == 'automation'", specifier = ">=0.9.54" },
 ]
-provides-extras = ["baba-mcp"]
+provides-extras = ["automation"]
 
 [package.metadata.requires-dev]
 dev = [

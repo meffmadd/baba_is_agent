@@ -166,6 +166,13 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
                         console_output = format_event_console(event)
                         print(console_output, flush=True)
 
+                        if event.get("type") == "error":
+                            error_msg = event.get("error", {}).get("data", {}).get(
+                                "message"
+                            ) or event.get("part", {}).get("text", "")
+                            if error_msg:
+                                error = error_msg
+
                         if (
                             event.get("type") == "tool_use"
                             and event.get("part", {}).get("tool") == "check_win_status"
@@ -280,9 +287,10 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
 
     return {
         "status": status,
-        "duration": f"{duration_seconds:.0f}s",
+        "duration": duration_seconds,
         "results_dir": str(results_dir),
         "won": won,
+        "error": error,
     }
 
 

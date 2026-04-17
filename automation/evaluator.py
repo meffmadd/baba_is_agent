@@ -85,7 +85,9 @@ def print_summary_table(results: List[Dict[str, Any]]):
     for result in results:
         level = result["level"]
         status = result["status"]
-        duration = f"{result['duration']:.1f}s"
+        duration = result["duration"]
+        if isinstance(duration, (int, float)):
+            duration = f"{duration:.1f}s"
         print(f"{level:<6} | {status:<10} | {duration:<10}")
 
     print("-" * 35)
@@ -229,6 +231,8 @@ def evaluate_level(
     # Report results
     print(f"\n=== Evaluation Complete ===")
     print(f"Status: {solver_result['status']}")
+    if solver_result.get("error"):
+        print(f"Error: {solver_result['error']}")
     print(f"Duration: {solver_result['duration']}")
     print(f"Results: {solver_result['results_dir']}")
 
@@ -246,6 +250,7 @@ def evaluate_level(
         "exit_code": exit_code,
         "duration": solver_result["duration"],
         "results_dir": solver_result["results_dir"],
+        "error": solver_result.get("error"),
     }
 
 
