@@ -162,6 +162,8 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
                     try:
                         event = json.loads(line)
                         trace_events.append(event)
+                        trace_file.write(line)
+                        trace_file.flush()
 
                         console_output = format_event_console(event)
                         print(console_output, flush=True)
@@ -173,17 +175,20 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
                             if error_msg:
                                 error = error_msg
 
-                        if (
-                            event.get("type") == "tool_use"
-                            and event.get("part", {}).get("tool") == "check_win_status"
-                        ):
+                        if event.get("type") == "tool_use":
+                            tool_name = event.get("part", {}).get("tool", "")
                             output = (
                                 event.get("part", {}).get("state", {}).get("output", "")
                             )
                             if output:
                                 try:
                                     win_data = json.loads(output)
-                                    won = win_data.get("won", False)
+                                    if (
+                                        win_data.get("won")
+                                        or win_data.get("data", {}).get("won")
+                                        or win_data.get("level_won")
+                                    ):
+                                        won = True
                                 except json.JSONDecodeError:
                                     pass
                     except json.JSONDecodeError:

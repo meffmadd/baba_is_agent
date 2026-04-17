@@ -241,6 +241,8 @@ def evaluate_level(
         exit_code = 0
     elif solver_result["status"] == "timeout":
         exit_code = 1
+    elif solver_result["status"] == "not_won":
+        exit_code = 1
     else:
         exit_code = 2
 
@@ -304,8 +306,8 @@ def main():
         )
         results.append(result)
 
-        # Stop on error or window failure
-        if result["exit_code"] in (2, 3):
+        # Stop on fatal error or window failure
+        if result["exit_code"] == 2 and result["status"] not in ("not_won", "timeout"):
             print(f"\nFatal error at level {level}, stopping evaluation")
             all_won = False
             break
