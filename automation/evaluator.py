@@ -240,6 +240,7 @@ def evaluate_level(
         print("Shutting down game...")
         game_process.terminate()
         game_process.wait()
+        kill_game()
 
     # Report results
     print(f"\n=== Evaluation Complete ===")
