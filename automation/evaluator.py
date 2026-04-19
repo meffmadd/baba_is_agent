@@ -21,12 +21,14 @@ from automation.config import (
     DEFAULT_TIMEOUT,
     WINDOW_WAIT_TIMEOUT,
     COMMANDS_DIR,
+    GAME_INIT_DELAY,
 )
 from automation.gui_controller import (
     wait_for_window,
     press_key_pyautogui,
     set_verbose,
     reset_game_process_name,
+    activate_game_window,
 )
 from automation.enter_overworld import enter_overworld
 from automation.enter_level import enter_level
@@ -176,9 +178,14 @@ def evaluate_level(
             "results_dir": None,
         }
 
-    # Give game time to fully initialize - splash screen needs to be ready
-    print("Game window detected, waiting 5s for initialization...")
-    time.sleep(5)
+    # Bring game window to foreground so key presses reach it
+    print("Activating game window...")
+    if not activate_game_window():
+        print("Warning: Failed to activate game window")
+
+    # Give game time to fully initialize (Python startup + mod loading + splash screen)
+    print("Game window detected, waiting for initialization...")
+    time.sleep(GAME_INIT_DELAY)
 
     # Get to overworld
     print("Navigating to overworld...")

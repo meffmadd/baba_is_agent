@@ -14,7 +14,7 @@ MODEL_PROVIDERS = ["openrouter", "opencode", "anthropic", "openai", "google"]
 DEFAULT_TIMEOUT = 900  # 15 minutes
 WINDOW_WAIT_TIMEOUT = 30  # seconds
 STARTUP_DELAY = 2  # seconds after game launch
-GAME_INIT_DELAY = 5  # seconds after window detection for game to fully initialize
+GAME_INIT_DELAY = 7  # seconds after window detection for game to fully initialize
 
 # Window geometry
 GAME_WINDOW_BOUNDS = {

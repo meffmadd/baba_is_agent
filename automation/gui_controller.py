@@ -186,6 +186,43 @@ def wait_for_window(timeout: int = 30) -> bool:
 # ========== Pyautogui-based functions ==========
 
 
+def activate_game_window() -> bool:
+    """Bring the game window to the foreground using System Events.
+
+    Uses 'set frontmost to true' which works with any running process
+    (including raw binaries like Chowdren), unlike 'tell application ... activate'
+    which only works with registered macOS .app bundles.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    process_name = get_game_process_name()
+    if not process_name:
+        _log("Failed to activate game: no game process found")
+        return False
+
+    script = f'''
+    tell application "System Events"
+        set frontmost of process "{process_name}" to true
+    end tell
+    '''
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script], capture_output=True, text=True, timeout=5
+        )
+        success = result.returncode == 0
+        if success:
+            _log("Activated game window via System Events")
+        else:
+            _log(
+                f"Failed to activate game: osascript returned {result.returncode}, stderr: {result.stderr}"
+            )
+        return success
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+        _log(f"Failed to activate game: {e}")
+        return False
+
+
 def focus_game_pyautogui(x: int, y: int) -> bool:
     """Focus game window by clicking at absolute screen coordinates.
 
