@@ -19,6 +19,7 @@ from typing import List, Dict, Any
 from automation.config import (
     DEFAULT_MODEL,
     DEFAULT_TIMEOUT,
+    DEFAULT_TOKEN_BUDGET,
     WINDOW_WAIT_TIMEOUT,
     COMMANDS_DIR,
     GAME_INIT_DELAY,
@@ -96,9 +97,12 @@ def print_summary_table(results: List[Dict[str, Any]]):
 
     won = sum(1 for r in results if r["status"] == "won")
     timeout = sum(1 for r in results if r["status"] == "timeout")
+    token_budget = sum(1 for r in results if r["status"] == "token_budget")
     error = sum(1 for r in results if r["exit_code"] in (2, 3))
 
-    print(f"\nTotal: {len(results)} | Won: {won} | Timeout: {timeout} | Error: {error}")
+    print(
+        f"\nTotal: {len(results)} | Won: {won} | Timeout: {timeout} | Token Budget: {token_budget} | Error: {error}"
+    )
     print("=" * 50)
 
 
@@ -136,6 +140,7 @@ def evaluate_level(
     level: str,
     model: str = DEFAULT_MODEL,
     timeout: int = DEFAULT_TIMEOUT,
+    token_budget: int = DEFAULT_TOKEN_BUDGET,
     no_shutdown: bool = False,
     verbose: bool = False,
 ) -> Dict[str, Any]:
@@ -145,6 +150,7 @@ def evaluate_level(
         level: Level number to solve
         model: Model to use (provider/model format)
         timeout: Solver timeout in seconds
+        token_budget: Max cumulative tokens before killing solver
         no_shutdown: Don't kill game process after completion
         verbose: Enable verbose logging
 
@@ -221,7 +227,7 @@ def evaluate_level(
 
     # Run solver
     print("Running solver...")
-    solver_result = run_solver(level, model, timeout)
+    solver_result = run_solver(level, model, timeout, token_budget)
 
     # Cleanup
     print("Exiting level...")
@@ -282,6 +288,12 @@ def main():
         help=f"Solver timeout in seconds (default: {DEFAULT_TIMEOUT})",
     )
     parser.add_argument(
+        "--token-budget",
+        type=int,
+        default=DEFAULT_TOKEN_BUDGET,
+        help=f"Max cumulative tokens before killing solver (default: {DEFAULT_TOKEN_BUDGET})",
+    )
+    parser.add_argument(
         "--no-shutdown",
         action="store_true",
         help="Don't kill game process after completion",
@@ -308,6 +320,7 @@ def main():
             level=str(level),
             model=args.model,
             timeout=args.timeout,
+            token_budget=args.token_budget,
             no_shutdown=args.no_shutdown,
             verbose=args.verbose,
         )

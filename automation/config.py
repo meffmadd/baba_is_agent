@@ -12,6 +12,7 @@ MODEL_PROVIDERS = ["openrouter", "opencode", "anthropic", "openai", "google"]
 
 # Timing
 DEFAULT_TIMEOUT = 900  # 15 minutes
+DEFAULT_TOKEN_BUDGET = 100000  # max cumulative tokens before killing solver
 WINDOW_WAIT_TIMEOUT = 30  # seconds
 STARTUP_DELAY = 2  # seconds after game launch
 GAME_INIT_DELAY = 7  # seconds after window detection for game to fully initialize

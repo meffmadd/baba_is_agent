@@ -15,6 +15,7 @@ import sys
 import time
 from pathlib import Path
 from datetime import datetime
+from automation.config import DEFAULT_TOKEN_BUDGET
 from typing import Dict, Any, Optional
 
 
@@ -83,13 +84,16 @@ def format_event_console(event: Dict[str, Any]) -> str:
     return f"[{event_type.upper()}]"
 
 
-def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
+def run_solver(
+    level: str, model: str, timeout: int, token_budget: int = DEFAULT_TOKEN_BUDGET
+) -> Dict[str, Any]:
     """Run the solver with timeout and capture results.
 
     Args:
         level: Level number to solve
         model: Model to use (provider/model format)
         timeout: Timeout in seconds
+        token_budget: Max cumulative tokens before killing the solver
 
     Returns:
         Dictionary with run results and metadata
@@ -125,6 +129,7 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
     trace_events = []
     won = False
     error = None
+    cumulative_tokens = 0
 
     trace_path = results_dir / "trace.jsonl"
     trace_file = open(trace_path, "w")
@@ -148,6 +153,14 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
                 won = False
                 break
 
+            if token_budget and cumulative_tokens > token_budget:
+                process.kill()
+                error = (
+                    f"Token budget exceeded: {cumulative_tokens:,} / {token_budget:,}"
+                )
+                won = False
+                break
+
             if process.stdout is None:
                 break
 
@@ -164,6 +177,9 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
                         trace_events.append(event)
                         trace_file.write(line)
                         trace_file.flush()
+
+if event.get("type") == "step_finish":
+                            cumulative_tokens = event.get("part", {}).get("tokens", {}).get("total", 0)
 
                         console_output = format_event_console(event)
                         print(console_output, flush=True)
@@ -225,11 +241,16 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
             tool_calls += 1
 
     # Determine status
-    status = (
-        "won"
-        if won
-        else ("timeout" if "Timeout" in str(error) else "error" if error else "not_won")
-    )
+    if won:
+        status = "won"
+    elif "Token budget" in str(error):
+        status = "token_budget"
+    elif "Timeout" in str(error):
+        status = "timeout"
+    elif error:
+        status = "error"
+    else:
+        status = "not_won"
 
     # Write run.json
     run_data = {
@@ -240,6 +261,7 @@ def run_solver(level: str, model: str, timeout: int) -> Dict[str, Any]:
         "timestamp_start": timestamp_start,
         "timestamp_end": timestamp_end,
         "timeout_seconds": timeout,
+        "token_budget": token_budget,
         "status": status,
         "cost_total": cost_total,
         "tokens_total": tokens_input + tokens_output,
@@ -314,10 +336,21 @@ def main():
     parser.add_argument(
         "--timeout", type=int, default=900, help="Timeout in seconds (default: 900)"
     )
+    parser.add_argument(
+        "--token-budget",
+        type=int,
+        default=DEFAULT_TOKEN_BUDGET,
+        help=f"Max cumulative tokens before killing solver (default: {DEFAULT_TOKEN_BUDGET})",
+    )
 
     args = parser.parse_args()
 
-    result = run_solver(level=args.level, model=args.model, timeout=args.timeout)
+    result = run_solver(
+        level=args.level,
+        model=args.model,
+        timeout=args.timeout,
+        token_budget=args.token_budget,
+    )
 
     print(f"Solver completed: {result['status']}")
     print(f"Results saved to: {result['results_dir']}")
