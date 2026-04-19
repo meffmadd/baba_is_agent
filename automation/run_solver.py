@@ -178,8 +178,10 @@ def run_solver(
                         trace_file.write(line)
                         trace_file.flush()
 
-if event.get("type") == "step_finish":
-                            cumulative_tokens = event.get("part", {}).get("tokens", {}).get("total", 0)
+                        if event.get("type") == "step_finish":
+                            cumulative_tokens = (
+                                event.get("part", {}).get("tokens", {}).get("total", 0)
+                            )
 
                         console_output = format_event_console(event)
                         print(console_output, flush=True)
