@@ -221,30 +221,29 @@ async function runTests() {
     }
   });
 
-  test("legend only contains present entities", () => {
-    // Get all entities in the table by checking cells
+test("legend only contains present entities", () => {
     const tableLines = compactState.table.split("\n");
-    const presentEntities = new Set<string>();
+    const presentChars = new Set<string>();
     for (const line of tableLines) {
-      if (line.startsWith("|")) {
-        const cells = line.split("|").map(c => c.trim()).filter(c => c && c !== "---" && !/^\d+$/.test(c) && c !== "y/x");
+      if (/^\s*\d+\|/.test(line)) {
+        const parts = line.split("|");
+        const cells = parts.slice(1).map(c => c.trim()).filter(c => c.length > 0);
         for (const cell of cells) {
-          if (cell && cell !== " ") {
-            // This is a character from the legend, find which entity it maps to
-            for (const [entity, char] of Object.entries(compactState.legend)) {
-              if (char === cell) {
-                presentEntities.add(entity);
-              }
-            }
-          }
+          presentChars.add(cell);
         }
       }
     }
-    // All legend keys should correspond to entities found in table
+    const presentEntities = new Set<string>();
+    for (const cell of presentChars) {
+      for (const [entity, char] of Object.entries(compactState.legend)) {
+        if (char === cell) {
+          presentEntities.add(entity);
+        }
+      }
+    }
     const legendKeys = Object.keys(compactState.legend);
     for (const key of legendKeys) {
-      // Entity should be present in game state (we can't directly check this without raw grid, but we can verify structure)
-      assert(typeof key === "string", "Legend key should be string");
+      assert(presentEntities.has(key), `Legend key "${key}" not found in table`);
     }
   });
 

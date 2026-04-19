@@ -109,7 +109,7 @@ function runTests() {
   // Find shortest path to far flag (5,5)
   for (const lastMove of directions) {
     const path = shortestPathFromGrid(gameStateJson, grid, { x: 5, y: 5 }, lastMove);
-    if (path.length > 0 && path.length < farthestPathLength || farthestPathLength === 0) {
+    if (path.length > 0 && (path.length < farthestPathLength || farthestPathLength === 0)) {
       farthestPathLength = path.length;
       farWinPos = { x: 5, y: 5 };
     }
