@@ -1,7 +1,5 @@
 import { Rule, type GameStateDataEntities } from "./models.js";
 
-const RELEVANT_ENTITIES = ["baba", "rock", "flag", "wall", "water"];
-
 function transpose<T>(matrix: T[][]): T[][] {
   return matrix[0]!.map((_, i) => matrix.map((row) => row[i]!));
 }
@@ -44,6 +42,8 @@ export function parseGameState(gameState: string): string[][] {
 
 export function gameStateCoords(gameState: string): { x: number; y: number; entity: string }[] {
   const matrix = parseGameState(gameState);
+  const rules = getRulesFromGrid(matrix);
+  const relevantEntities = new Set(rules.flatMap((r) => [r.entity, r.state]));
   const coords: { x: number; y: number; entity: string }[] = [];
 
   for (let y = 0; y < matrix.length; y++) {
@@ -52,7 +52,7 @@ export function gameStateCoords(gameState: string): { x: number; y: number; enti
       const entity = row[x]!;
       const entities = entity.split("<");
       for (const e of entities) {
-        if (RELEVANT_ENTITIES.includes(e) || e.startsWith("text_")) {
+        if (relevantEntities.has(e) || e.startsWith("text_")) {
           coords.push({ x: x + 1, y: y + 1, entity: e });
         }
       }
@@ -142,7 +142,11 @@ export function getStatePositions(
     return [];
   }
 
-  return getCoordsOfElement(gameState, matchingRules[0]!.entity);
+  const positions: { x: number; y: number }[] = [];
+  for (const rule of matchingRules) {
+    positions.push(...getCoordsOfElement(gameState, rule.entity));
+  }
+  return positions;
 }
 
 export function getStatePositionsFromGrid(
@@ -157,9 +161,12 @@ export function getStatePositionsFromGrid(
     return [];
   }
 
-  // Get positions directly from the JSON entities data
-  const entityName = matchingRules[0]!.entity;
-  return gameStateJson.entities[entityName] || [];
+  const positions: { x: number; y: number }[] = [];
+  for (const rule of matchingRules) {
+    const entityPositions = gameStateJson.entities[rule.entity] || [];
+    positions.push(...entityPositions);
+  }
+  return positions;
 }
 
 export function getTextBlockPositions(gameState: string): { x: number; y: number; text: string }[] {
