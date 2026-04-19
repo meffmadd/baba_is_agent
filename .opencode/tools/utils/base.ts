@@ -61,6 +61,12 @@ export function gameStateCoords(gameState: string): { x: number; y: number; enti
   return coords;
 }
 
+function extractTextEntity(cell: string): string {
+  const parts = cell.split("<");
+  const textPart = parts.find((e) => e.startsWith("text_"));
+  return textPart ? textPart.replace(/^text_/, "") : "";
+}
+
 function rulesFromRow(row: string): Rule[] {
   const tokens = row.split(" ");
   const rules: Rule[] = [];
@@ -68,9 +74,11 @@ function rulesFromRow(row: string): Rule[] {
   for (let i = 0; i < tokens.length; i++) {
     if (tokens[i]!.includes("is")) {
       if (i > 0 && i < tokens.length - 1 && tokens[i - 1] && tokens[i + 1]) {
-        const entity = tokens[i - 1]!.split("<").pop()?.replace(/^text_/, "") ?? "";
-        const state = tokens[i + 1]!.split("<").pop()?.replace(/^text_/, "") ?? "";
-        rules.push({ entity, state });
+        const entity = extractTextEntity(tokens[i - 1]!);
+        const state = extractTextEntity(tokens[i + 1]!);
+        if (entity && state) {
+          rules.push({ entity, state });
+        }
       }
     }
   }
