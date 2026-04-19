@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 from datetime import datetime
-from automation.config import DEFAULT_TOKEN_BUDGET
+from automation.config import DEFAULT_TOKEN_BUDGET, STATE_PATH
 from typing import Dict, Any, Optional
 
 
@@ -82,6 +82,36 @@ def format_event_console(event: Dict[str, Any]) -> str:
         return f"[ERROR] {part.get('text', 'Unknown error')}"
 
     return f"[{event_type.upper()}]"
+
+
+def check_world_data_won() -> Optional[bool]:
+    """Check if the level was won by reading the game's world_data.txt file.
+
+    The game writes level_won = true to the [status] section when a level
+    is completed. This serves as ground truth independent of tool output parsing.
+
+    Returns:
+        True if level_won = true, False if level_won = false,
+        None if the file cannot be read or parsed.
+    """
+    try:
+        content = STATE_PATH.read_text()
+        in_status = False
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped == "[status]":
+                in_status = True
+                continue
+            if stripped.startswith("[") and stripped.endswith("]"):
+                in_status = False
+                continue
+            if in_status and "=" in stripped:
+                key, _, value = stripped.partition("=")
+                if key.strip() == "level_won":
+                    return value.strip().lower() == "true"
+        return None
+    except (OSError, FileNotFoundError):
+        return None
 
 
 def run_solver(
@@ -195,20 +225,17 @@ def run_solver(
 
                         if event.get("type") == "tool_use":
                             tool_name = event.get("part", {}).get("tool", "")
-                            output = (
-                                event.get("part", {}).get("state", {}).get("output", "")
+                            tool_status = (
+                                event.get("part", {}).get("state", {}).get("status", "")
                             )
-                            if output:
-                                try:
-                                    win_data = json.loads(output)
-                                    if (
-                                        win_data.get("won")
-                                        or win_data.get("data", {}).get("won")
-                                        or win_data.get("level_won")
-                                    ):
-                                        won = True
-                                except json.JSONDecodeError:
-                                    pass
+                            if tool_status == "completed" and check_world_data_won():
+                                won = True
+                                print(
+                                    "[WIN] Level won detected via world_data",
+                                    flush=True,
+                                )
+                                process.kill()
+                                break
                     except json.JSONDecodeError:
                         pass
 
@@ -225,6 +252,10 @@ def run_solver(
         trace_file.close()
 
     timestamp_end = datetime.utcnow().isoformat() + "Z"
+
+    # Final win check in case process exited before we polled
+    if not won and check_world_data_won():
+        won = True
 
     # Extract metrics from trace
     tokens_input = 0
