@@ -17,11 +17,13 @@ export async function getGameInsights(): Promise<GameInsights> {
     const directions = ["up", "down", "left", "right"] as const;
     let shortestMoves: Direction[] | null = null;
 
-    for (const lastMove of directions) {
-      const path = shortestPathFromGrid(gameState, rawGrid.grid, winPositions[0]!, lastMove);
-      if (path.length > 0) {
-        if (shortestMoves === null || path.length < shortestMoves.length) {
-          shortestMoves = path;
+    for (const winPos of winPositions) {
+      for (const lastMove of directions) {
+        const path = shortestPathFromGrid(gameState, rawGrid.grid, winPos, lastMove);
+        if (path.length > 0) {
+          if (shortestMoves === null || path.length < shortestMoves.length) {
+            shortestMoves = path;
+          }
         }
       }
     }
