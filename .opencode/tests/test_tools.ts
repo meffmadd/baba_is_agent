@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { getRules, getStatePositions, gameStateCoords } from "../tools/utils/base.js";
 import { reachableEntities, shortestPath } from "../tools/utils/path_finding.js";
-import { getGameState } from "../tools/utils/get_game_state.js";
+import { getGameState, getGameStateAsJson, getGameStateAsGrid, getGameStateAsCompact } from "../tools/utils/get_game_state.js";
 
 const TEST_DIR = path.dirname(new URL(import.meta.url).pathname);
 const FIXTURES_DIR = path.join(TEST_DIR, "fixtures");
@@ -38,6 +38,63 @@ function assert(condition: boolean, message: string) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+// Helper: parse compact markdown table back to 2D char array
+function parseCompactTable(table: string, width: number, height: number): string[][] {
+  const lines = table.split("\n");
+  const grid: string[][] = [];
+  // Skip header line (first line)
+  for (let i = 1; i < lines.length && grid.length < height; i++) {
+    const line = lines[i];
+    if (!line) continue;
+    const parts = line.split("|");
+    // parts[0] is row number, parts[1..width] are cells
+    const cells: string[] = [];
+    for (let x = 0; x < width; x++) {
+      cells.push((parts[x + 1] || "").trim());
+    }
+    grid.push(cells);
+  }
+  return grid;
+}
+
+// Helper: build reverse lookup from display char to entity name
+function buildReverseLegend(legend: Record<string, string>): Record<string, string> {
+  const reverse: Record<string, string> = {};
+  for (const [entity, char] of Object.entries(legend)) {
+    reverse[char] = entity;
+  }
+  return reverse;
+}
+
+// Helper: reconstruct grid from entities format
+function entitiesToGrid(
+  entities: Record<string, { x: number; y: number }[]>,
+  width: number,
+  height: number
+): string[][] {
+  const grid: string[][] = Array.from({ length: height }, () => Array(width).fill(""));
+  for (const [entity, positions] of Object.entries(entities)) {
+    for (const pos of positions) {
+      const x = pos.x - 1;
+      const y = pos.y - 1;
+      if (x >= 0 && x < width && y >= 0 && y < height) {
+        if (grid[y][x]) {
+          grid[y][x] = grid[y][x] + "<" + entity;
+        } else {
+          grid[y][x] = entity;
+        }
+      }
+    }
+  }
+  return grid;
+}
+
+// Helper: normalize cell entity ordering for comparison
+function normalizeCell(cell: string): string {
+  if (!cell) return "";
+  return cell.split("<").sort().join("<");
 }
 
 async function runTests() {
@@ -190,7 +247,6 @@ async function runTests() {
 
   // Test 8: getGameStateAsCompact
   console.log("Test Suite: getGameStateAsCompact");
-  const { getGameStateAsCompact } = await import("../tools/utils/get_game_state.js");
   const compactState = await getGameStateAsCompact(false);
 
   test("returns object with dimensions", () => {
@@ -251,7 +307,87 @@ test("legend only contains present entities", () => {
   console.log(`  Legend entries: ${Object.keys(compactState.legend).length}`);
   console.log(`  Table lines: ${compactState.table.split("\n").length}`);
   console.log();
-  
+
+  // Test 9: Format Equivalence
+  console.log("Test Suite: Format Equivalence");
+  for (const activeOnly of [false, true]) {
+    const label = activeOnly ? "active_only=true" : "active_only=false";
+    const entitiesState = await getGameStateAsJson(activeOnly);
+    const gridState = await getGameStateAsGrid(activeOnly);
+    const compactStateAO = await getGameStateAsCompact(activeOnly);
+
+    test(`[${label}] dimensions match across all formats`, () => {
+      assert(entitiesState.dimensions.width === gridState.dimensions.width, "entities width != grid width");
+      assert(entitiesState.dimensions.height === gridState.dimensions.height, "entities height != grid height");
+      assert(compactStateAO.dimensions.width === gridState.dimensions.width, "compact width != grid width");
+      assert(compactStateAO.dimensions.height === gridState.dimensions.height, "compact height != grid height");
+    });
+
+    test(`[${label}] entities and grid are perfectly equivalent`, () => {
+      const { width, height } = gridState.dimensions;
+      const reconstructedGrid = entitiesToGrid(entitiesState.entities, width, height);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const gridCell = gridState.grid[y]?.[x] || "";
+          const reconCell = reconstructedGrid[y]?.[x] || "";
+          assert(normalizeCell(gridCell) === normalizeCell(reconCell), `Mismatch at (${x + 1}, ${y + 1}): grid="${gridCell}" entities="${reconCell}"`);
+        }
+      }
+    });
+
+    test(`[${label}] compact cells project valid grid entities`, () => {
+      const { width, height } = compactStateAO.dimensions;
+      const reverseLegend = buildReverseLegend(compactStateAO.legend);
+      const compactGrid = parseCompactTable(compactStateAO.table, width, height);
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const compactChar = compactGrid[y]?.[x] || "";
+          const gridCell = gridState.grid[y]?.[x] || "";
+
+          if (compactChar === "") {
+            assert(gridCell === "", `Empty compact cell at (${x + 1}, ${y + 1}) but grid has "${gridCell}"`);
+          } else {
+            const entity = reverseLegend[compactChar];
+            assert(entity !== undefined, `Compact char "${compactChar}" at (${x + 1}, ${y + 1}) not in legend`);
+            const firstEntity = gridCell.split("<")[0] || "";
+            assert(firstEntity === entity, `Compact shows "${compactChar}"->${entity} at (${x + 1}, ${y + 1}) but grid first entity is "${firstEntity}"`);
+          }
+        }
+      }
+    });
+
+    test(`[${label}] compact legend entities exist in entities format`, () => {
+      for (const entity of Object.keys(compactStateAO.legend)) {
+        assert(entity in entitiesState.entities, `Legend entity "${entity}" not found in entities format`);
+      }
+    });
+  }
+  console.log();
+
+  // Test 10: Entities to Grid Round-trip
+  console.log("Test Suite: Entities to Grid Round-trip");
+  for (const activeOnly of [false, true]) {
+    const label = activeOnly ? "active_only=true" : "active_only=false";
+    const entitiesState = await getGameStateAsJson(activeOnly);
+    const gridState = await getGameStateAsGrid(activeOnly);
+    const { width, height } = gridState.dimensions;
+
+    test(`[${label}] entities -> grid reconstruction matches original`, () => {
+      const reconstructed = entitiesToGrid(entitiesState.entities, width, height);
+      assert(reconstructed.length === height, "Reconstructed height mismatch");
+      for (let y = 0; y < height; y++) {
+        assert(reconstructed[y].length === width, `Reconstructed row ${y} width mismatch`);
+        for (let x = 0; x < width; x++) {
+          const original = gridState.grid[y][x] || "";
+          const rebuilt = reconstructed[y][x] || "";
+          assert(normalizeCell(original) === normalizeCell(rebuilt), `Round-trip mismatch at (${x + 1}, ${y + 1}): original="${original}" rebuilt="${rebuilt}"`);
+        }
+      }
+    });
+  }
+  console.log();
+
   // Summary
   console.log("=".repeat(60));
   console.log("Test Summary");
