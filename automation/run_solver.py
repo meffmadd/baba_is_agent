@@ -19,17 +19,24 @@ from automation.config import DEFAULT_TOKEN_BUDGET, STATE_PATH
 from typing import Dict, Any, Optional
 
 
-def get_commit_hash() -> str:
-    """Get the first 7 characters of the current git commit hash."""
+def get_tools_hash() -> str:
+    """Get the MD5 hash of the .opencode/tools directory contents."""
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+            ["tar", "c", ".opencode/tools"],
             capture_output=True,
-            text=True,
             timeout=5,
             cwd=Path(__file__).parent.parent,
         )
-        return result.stdout.strip()[:7]
+        if result.returncode != 0:
+            return "unknown"
+        md5_result = subprocess.run(
+            ["md5"],
+            input=result.stdout,
+            capture_output=True,
+            timeout=5,
+        )
+        return md5_result.stdout.decode().strip().split()[-1]
     except (subprocess.TimeoutExpired, subprocess.SubprocessError):
         return "unknown"
 
@@ -128,14 +135,14 @@ def run_solver(
     Returns:
         Dictionary with run results and metadata
     """
-    commit_hash = get_commit_hash()
+    tools_hash = get_tools_hash()
     model_sanitized = sanitize_model_name(model)
     timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     results_dir = (
         Path(__file__).parent
         / "results"
         / model_sanitized
-        / f"level_{level}_{commit_hash}_{timestamp}"
+        / f"level_{level}_{tools_hash}_{timestamp}"
     )
     results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -290,7 +297,7 @@ def run_solver(
         "level": f"level_{level}",
         "model": model,
         "model_sanitized": model_sanitized,
-        "commit_hash": commit_hash,
+        "tools_hash": tools_hash,
         "timestamp_start": timestamp_start,
         "timestamp_end": timestamp_end,
         "timeout_seconds": timeout,
@@ -320,7 +327,7 @@ def run_solver(
 **Cost**: ${cost_total:.2f}
 **Tokens**: {tokens_input + tokens_output:,} (input: {tokens_input:,}, output: {tokens_output:,})
 **Tool Calls**: {tool_calls}
-**Commit**: {commit_hash}
+**Tools Hash**: {tools_hash}
 
 ## Timeline
 
