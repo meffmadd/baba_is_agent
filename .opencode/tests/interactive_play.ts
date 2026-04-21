@@ -3,33 +3,6 @@ import { getGameStateAsCompact } from "../tools/utils/get_game_state.js";
 import { getGameInsights } from "../tools/utils/get_game_insights.js";
 import { executeCommands, restartLevel, undoMultiple } from "../tools/utils/execute_commands.js";
 import { getGameStateFormatted } from "../tools/utils/get_game_state_tool.js";
-import { waitForStateSettle } from "../tools/utils/poll_state.js";
-
-interface ToolResultData {
-  active_rules?: { entity: string; state: string }[];
-  you_positions?: { x: number; y: number }[];
-  win_positions?: { x: number; y: number }[];
-  level_won?: boolean;
-  success?: boolean;
-  message?: string;
-  diff?: unknown;
-  executed?: string[];
-}
-
-interface ParsedToolResult {
-  success: boolean;
-  data: ToolResultData | null;
-  message: string;
-}
-
-function parseToolResult(toolResult: string | null): ParsedToolResult | null {
-  if (!toolResult) return null;
-  try {
-    return JSON.parse(toolResult) as ParsedToolResult;
-  } catch {
-    return null;
-  }
-}
 
 async function printCompactGrid(active_only: boolean = false) {
   const compactState = await getGameStateAsCompact(active_only);
@@ -49,19 +22,13 @@ async function printCompactGrid(active_only: boolean = false) {
 async function printToolOutputs(toolResult: string | null = null) {
   console.log("\n" + "=".repeat(70));
 
-  const parsed = parseToolResult(toolResult);
-  const toolData = parsed?.data ?? null;
-
-  // Wait for state to settle if we just executed a command
-  if (toolResult !== null) {
-    await waitForStateSettle();
-  }
-
   // 1. Game State (JSON format)
   console.log(`=== Game State (active_only: ${showActiveOnly}, format: ${showGridFormat ? 'grid' : 'entities'}) ===`);
   const gameStateResult = await getGameStateFormatted(showActiveOnly, showGridFormat ? "grid" : "entities");
   const gameStateParsed = JSON.parse(gameStateResult);
-  if (showGridFormat && gameStateParsed.data) {
+  if (!gameStateParsed.success) {
+    console.log("Error: " + (gameStateParsed.message || "Failed to get game state"));
+  } else if (showGridFormat && gameStateParsed.data) {
     const gs = gameStateParsed.data;
     console.log(JSON.stringify({ dimensions: gs.dimensions }, null, 2));
     console.log("grid:");
@@ -74,27 +41,11 @@ async function printToolOutputs(toolResult: string | null = null) {
     console.log(JSON.stringify(gameStateParsed.data, null, 2));
   }
 
-  // 2. Game Insights (use tool data if available, otherwise fetch)
+  // 2. Game Insights — always fetch real insights (including path_to_win)
   console.log("\n" + "=".repeat(70));
   console.log("=== Game Insights ===");
-
-  if (toolData && toolData.active_rules && toolData.you_positions) {
-    const insights = {
-      success: true,
-      data: {
-        active_rules: toolData.active_rules,
-        you_positions: toolData.you_positions,
-        win_positions: toolData.win_positions || [],
-        path_to_win: null,
-        level_won: toolData.level_won || false
-      },
-      message: "From tool result"
-    };
-    console.log(JSON.stringify(insights, null, 2));
-  } else {
-    const insights = await getGameInsights();
-    console.log(JSON.stringify(insights, null, 2));
-  }
+  const insights = await getGameInsights();
+  console.log(JSON.stringify(insights, null, 2));
 
   // 3. Execute Commands Result (if available)
   if (toolResult) {
