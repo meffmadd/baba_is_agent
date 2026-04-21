@@ -72,7 +72,8 @@ function rulesFromRow(row: string): Rule[] {
   const rules: Rule[] = [];
 
   for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i]!.includes("is")) {
+    const textEntity = extractTextEntity(tokens[i]!);
+    if (textEntity === "is") {
       if (i > 0 && i < tokens.length - 1 && tokens[i - 1] && tokens[i + 1]) {
         const entity = extractTextEntity(tokens[i - 1]!);
         const state = extractTextEntity(tokens[i + 1]!);

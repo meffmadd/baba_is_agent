@@ -49,6 +49,7 @@ function calculateBlockedEntities(
 ): number[][] {
   const blockedStates: [string | null, string][] = [[null, "stop"], [null, "defeat"], [null, "sink"], ["melt", "hot"]];
   const yous = rules.filter((r) => r.state === "you").map((r) => r.entity);
+  const meltEntities = new Set(rules.filter((r) => r.state === "melt").map((r) => r.entity));
 
   const blockedMatrix: number[][] = [];
 
@@ -66,7 +67,7 @@ function calculateBlockedEntities(
             for (const r of matchingRules) {
               if (!youReq && r.state === blockedState) {
                 blocked = 1;
-              } else if (youReq === you && r.state === blockedState) {
+              } else if (youReq === "melt" && meltEntities.has(you) && r.state === blockedState) {
                 blocked = 1;
               }
             }

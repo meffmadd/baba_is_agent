@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const HELP_RULES_PATH = path.join(process.cwd(), "..", "help_rules.json");
+const HELP_RULES_PATH = path.join(process.cwd(), "help_rules.json");
 
 interface RuleInfo {
   title: string;
