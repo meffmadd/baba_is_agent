@@ -6,3 +6,5 @@ debug.lua
 .idea
 .zed
 automation/results
+automation/report/*.md
+automation/report/*.png

@@ -19,6 +19,10 @@ automation = [
     "configparser>=7.2.0",
     "pyautogui>=0.9.54",
 ]
+reporting = [
+    "matplotlib>=3.10.0",
+    "seaborn>=0.13.2",
+]
 
 [dependency-groups]
 dev = [

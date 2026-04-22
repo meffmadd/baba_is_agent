@@ -19,6 +19,19 @@ npx tsx tests/test_tools.ts     # Run tests
 npx tsc --noEmit                # Type check
 ```
 
+## Reporting
+
+Generate markdown reports and plots from `automation/results/`.
+
+```bash
+uv sync --extra reporting       # Install matplotlib + seaborn
+uv run python -m automation.report  # Generate report
+```
+
+Output:
+- `automation/report/report.md` — All runs + latest-by-model/level tables
+- `automation/report/latest_runs_tools_vs_tokens.png` — Tool calls vs tokens scatter plot
+
 ## Applying Changes
 
 After modifying tools, commands, or agent configuration, restart the opencode instance for changes to take effect.
