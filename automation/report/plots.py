@@ -55,19 +55,30 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
     sns.set_theme(style="whitegrid")
     saved_paths = []
 
+    models = sorted({run.get("model", "Unknown") for run in runs})
+    palette = sns.color_palette("husl", n_colors=len(models))
+    model_colors = dict(zip(models, palette))
+
     for level in sorted({run["level"] for run in runs}):
         level_runs = [run for run in runs if run["level"] == level]
 
         plt.figure(figsize=(10, 6))
 
         for run in level_runs:
+            model = run.get("model", "Unknown")
             trace_path = Path(run["_run_dir"]) / "trace.jsonl"
             tool_calls, tokens = parse_trace(trace_path)
-            plt.plot(tool_calls, tokens, marker="o", markersize=4, alpha=0.7)
+            plt.plot(
+                tool_calls, tokens,
+                color=model_colors[model],
+                marker="o", markersize=4, alpha=0.7,
+                label=model,
+            )
 
         plt.xlabel("# Tool Calls")
         plt.ylabel("Cumulative Tokens")
         plt.title(f"{level}: Cumulative Tokens vs Tool Calls")
+        plt.legend(title="Model", loc="upper left")
         plt.tight_layout()
 
         plot_path = REPORT_DIR / f"{level}_progress.png"
