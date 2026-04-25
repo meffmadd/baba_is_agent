@@ -139,6 +139,47 @@ def get_latest_by_model_level(runs: list[dict]) -> list[dict]:
     return sorted(latest.values(), key=lambda r: (r.get("model", ""), r.get("level", "")))
 
 
+STATUS_ICON = {
+    "won": "✅",
+}
+
+
+def build_matrix_table(runs: list[dict]) -> str:
+    """Build a markdown matrix table with models as rows and levels as columns."""
+    # Collect unique models and levels
+    models = sorted({run.get("model", "") for run in runs if run.get("model")})
+    levels = sorted({run.get("level", "") for run in runs if run.get("level")})
+
+    if not models or not levels:
+        return "No data available for matrix."
+
+    # Build lookup: (model, level) -> status
+    status_lookup = {}
+    for run in runs:
+        key = (run.get("model", ""), run.get("level", ""))
+        status_lookup[key] = run.get("status", "")
+
+    # Build header
+    header = "| Model | " + " | ".join(levels) + " |"
+    separator = "|" + "---|" * (len(levels) + 1)
+
+    # Build rows
+    rows = []
+    for model in models:
+        cells = []
+        for level in levels:
+            status = status_lookup.get((model, level), "")
+            if status == "":
+                icon = "—"
+            else:
+                icon = STATUS_ICON.get(status, "❌")
+            cells.append(icon)
+        row = f"| {model} | " + " | ".join(cells) + " |"
+        rows.append(row)
+
+    return "\n".join([header, separator] + rows)
+
+
 def generate_report() -> None:
     """Generate the markdown report."""
     runs = collect_runs()
@@ -156,6 +197,9 @@ def generate_report() -> None:
     latest_runs = get_latest_by_model_level(runs)
     latest_rows = "\n".join(build_table_row(run) for run in latest_runs)
 
+    # Build model x level matrix
+    matrix_table = build_matrix_table(latest_runs)
+
     # Generate per-level progress plots (latest run per model/level only)
     level_plot_paths = generate_level_progress_plots(latest_runs)
     level_plots_md = "\n".join(
@@ -171,6 +215,7 @@ def generate_report() -> None:
         generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
         rows=rows,
         latest_rows=latest_rows,
+        matrix_table=matrix_table,
         level_plots=level_plots_md,
     )
 

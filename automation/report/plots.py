@@ -11,6 +11,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.lines import Line2D
 
 REPORT_DIR = Path(__file__).parent
 
@@ -62,23 +63,90 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
     for level in sorted({run["level"] for run in runs}):
         level_runs = [run for run in runs if run["level"] == level]
 
-        plt.figure(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(10, 6))
+        parsed_runs: list[tuple[dict, str, list[int], list[int]]] = []
 
         for run in level_runs:
             model = run.get("model", "Unknown")
             trace_path = Path(run["_run_dir"]) / "trace.jsonl"
             tool_calls, tokens = parse_trace(trace_path)
-            plt.plot(
-                tool_calls, tokens,
-                color=model_colors[model],
-                marker="o", markersize=4, alpha=0.7,
-                label=model,
+            parsed_runs.append((run, model, tool_calls, tokens))
+            if tool_calls:
+                ax.plot(
+                    tool_calls, tokens,
+                    color=model_colors[model],
+                    marker="o", markersize=4, alpha=0.7,
+                    label=model,
+                )
+
+        ax.set_xlabel("# Tool Calls")
+        ax.set_ylabel("Cumulative Tokens")
+        ax.set_title(f"{level}: Cumulative Tokens vs Tool Calls")
+
+        # Secondary axis for win/loss glyphs at final positions
+        ax2 = ax.twinx()
+        ax2.set_ylim(ax.get_ylim())
+        ax2.set_yticks([])
+        ax2.spines["right"].set_visible(False)
+
+        has_won = False
+        has_lost = False
+        has_timeout = False
+
+        for run, model, tool_calls, tokens in parsed_runs:
+            if not tool_calls:
+                continue
+            final_tc = tool_calls[-1]
+            final_tok = tokens[-1]
+            status = run.get("status", "")
+            color = model_colors[model]
+
+            if status == "won":
+                ax2.scatter(
+                    final_tc, final_tok,
+                    marker="*", s=350,
+                    color=color, edgecolors="black", linewidths=1.2,
+                    zorder=10,
+                )
+                has_won = True
+            elif status == "timeout":
+                ax2.scatter(
+                    final_tc, final_tok,
+                    marker="s", s=150,
+                    color=color, edgecolors="black", linewidths=1.2,
+                    zorder=10,
+                )
+                has_timeout = True
+            else:
+                ax2.scatter(
+                    final_tc, final_tok,
+                    marker="X", s=150,
+                    color=color, edgecolors="black", linewidths=1.2,
+                    zorder=10,
+                )
+                has_lost = True
+
+        # Build custom legend combining models and status glyphs
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+
+        if has_won:
+            by_label["Won"] = Line2D(
+                [0], [0], marker="*", color="w", markerfacecolor="gray",
+                markeredgecolor="black", markersize=15, linestyle="None",
+            )
+        if has_lost:
+            by_label["Not Won"] = Line2D(
+                [0], [0], marker="X", color="w", markerfacecolor="gray",
+                markeredgecolor="black", markersize=10, linestyle="None",
+            )
+        if has_timeout:
+            by_label["Timeout"] = Line2D(
+                [0], [0], marker="s", color="w", markerfacecolor="gray",
+                markeredgecolor="black", markersize=10, linestyle="None",
             )
 
-        plt.xlabel("# Tool Calls")
-        plt.ylabel("Cumulative Tokens")
-        plt.title(f"{level}: Cumulative Tokens vs Tool Calls")
-        plt.legend(title="Model", loc="upper left")
+        ax.legend(by_label.values(), by_label.keys(), title="Model / Status", loc="upper left")
         plt.tight_layout()
 
         plot_path = REPORT_DIR / f"{level}_progress.png"
