@@ -11,7 +11,7 @@ DEFAULT_MODEL = "aqueduct/glm-4.7-355b"
 MODEL_PROVIDERS = ["openrouter", "opencode", "anthropic", "openai", "google"]
 
 # Timing
-DEFAULT_TIMEOUT = 900  # 15 minutes
+DEFAULT_TIMEOUT = 1200  # 20 minutes
 DEFAULT_TOKEN_BUDGET = 100000  # max cumulative tokens before killing solver
 WINDOW_WAIT_TIMEOUT = 30  # seconds
 STARTUP_DELAY = 2  # seconds after game launch
