@@ -221,6 +221,90 @@ def build_duration_matrix_table(runs: list[dict], model_order: list[str] | None 
     return "\n".join([header, separator] + rows)
 
 
+def collect_game_state_format_usage(runs: list[dict]) -> dict[str, dict[str, int]]:
+    """Parse trace.jsonl files and count get_game_state calls by format per model."""
+    usage: dict[str, dict[str, int]] = {}
+
+    for run in runs:
+        model = run.get("model", "")
+        run_dir = run.get("_run_dir", "")
+        if not model or not run_dir:
+            continue
+
+        trace_path = Path(run_dir) / "trace.jsonl"
+        if not trace_path.exists():
+            continue
+
+        if model not in usage:
+            usage[model] = {"entities": 0, "grid": 0, "unknown": 0}
+
+        try:
+            with trace_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if entry.get("type") != "tool_use":
+                        continue
+
+                    part = entry.get("part", {})
+                    if part.get("type") != "tool":
+                        continue
+                    if part.get("tool") != "get_game_state":
+                        continue
+
+                    state = part.get("state", {})
+                    input_args = state.get("input", {})
+                    fmt = input_args.get("format", "unknown")
+
+                    if fmt in ("entities", "grid"):
+                        usage[model][fmt] += 1
+                    else:
+                        usage[model]["unknown"] += 1
+        except (OSError, json.JSONDecodeError):
+            continue
+
+    return usage
+
+
+def build_format_usage_table(usage: dict[str, dict[str, int]], model_order: list[str] | None = None) -> str:
+    """Build a markdown table showing get_game_state format preference per model."""
+    if not usage:
+        return "No data available for format usage."
+
+    # Sort by model order if provided, else alphabetical
+    models = model_order or sorted(usage.keys())
+
+    rows = []
+    for model in models:
+        counts = usage.get(model, {"entities": 0, "grid": 0, "unknown": 0})
+        entities = counts.get("entities", 0)
+        grid = counts.get("grid", 0)
+        unknown = counts.get("unknown", 0)
+        total = entities + grid + unknown
+
+        if total == 0:
+            pct_entities = "0%"
+            pct_grid = "0%"
+        else:
+            pct_entities = f"{entities / total * 100:.0f}%"
+            pct_grid = f"{grid / total * 100:.0f}%"
+
+        pref = "entities" if entities > grid else "grid" if grid > entities else "tie"
+        row = f"| {model} | {entities} ({pct_entities}) | {grid} ({pct_grid}) | {pref} |"
+        rows.append(row)
+
+    header = "| Model | Entities Calls | Grid Calls | Preferred |"
+    separator = "|---|---|---|---|"
+
+    return "\n".join([header, separator] + rows)
+
+
 def generate_report() -> None:
     """Generate the markdown report."""
     runs = collect_runs()
@@ -243,6 +327,10 @@ def generate_report() -> None:
 
     # Build duration matrix (same model order)
     duration_matrix_table = build_duration_matrix_table(latest_runs, model_order)
+
+    # Build game state format usage table
+    format_usage = collect_game_state_format_usage(runs)
+    format_usage_table = build_format_usage_table(format_usage, model_order)
 
     # Generate per-level progress plots (latest run per model/level only)
     level_plot_paths = generate_level_progress_plots(latest_runs)
@@ -269,6 +357,7 @@ def generate_report() -> None:
         latest_rows=latest_rows,
         matrix_table=matrix_table,
         duration_matrix_table=duration_matrix_table,
+        format_usage_table=format_usage_table,
         level_plots=level_plots_md,
         duration_plots=duration_plots_md,
     )
