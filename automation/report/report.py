@@ -15,9 +15,9 @@ from pathlib import Path
 from string import Template
 
 try:
-    from .plots import generate_level_progress_plots
+    from .plots import generate_duration_bar_charts, generate_level_progress_plots
 except ImportError:
-    from plots import generate_level_progress_plots
+    from plots import generate_duration_bar_charts, generate_level_progress_plots
 
 
 REPORT_DIR = Path(__file__).parent
@@ -180,6 +180,37 @@ def build_matrix_table(runs: list[dict]) -> str:
     return "\n".join([header, separator] + rows)
 
 
+def build_duration_matrix_table(runs: list[dict]) -> str:
+    """Build a markdown matrix table showing execution duration per model/level."""
+    models = sorted({run.get("model", "") for run in runs if run.get("model")})
+    levels = sorted({run.get("level", "") for run in runs if run.get("level")})
+
+    if not models or not levels:
+        return "No data available for duration matrix."
+
+    # Build lookup: (model, level) -> duration string
+    duration_lookup = {}
+    for run in runs:
+        key = (run.get("model", ""), run.get("level", ""))
+        duration_lookup[key] = format_duration(
+            run.get("timestamp_start", ""), run.get("timestamp_end", "")
+        )
+
+    header = "| Model | " + " | ".join(levels) + " |"
+    separator = "|" + "---|" * (len(levels) + 1)
+
+    rows = []
+    for model in models:
+        cells = []
+        for level in levels:
+            duration = duration_lookup.get((model, level), "—")
+            cells.append(duration)
+        row = f"| {model} | " + " | ".join(cells) + " |"
+        rows.append(row)
+
+    return "\n".join([header, separator] + rows)
+
+
 def generate_report() -> None:
     """Generate the markdown report."""
     runs = collect_runs()
@@ -200,12 +231,23 @@ def generate_report() -> None:
     # Build model x level matrix
     matrix_table = build_matrix_table(latest_runs)
 
+    # Build duration matrix
+    duration_matrix_table = build_duration_matrix_table(latest_runs)
+
     # Generate per-level progress plots (latest run per model/level only)
     level_plot_paths = generate_level_progress_plots(latest_runs)
     level_plots_md = "\n".join(
         f"### {p.name.replace('_progress.png', '').replace('level_', 'Level ')}\n\n"
         f"![{p.name}]({p.name})"
         for p in sorted(level_plot_paths)
+    )
+
+    # Generate duration bar charts (one per level)
+    duration_plot_paths = generate_duration_bar_charts(latest_runs)
+    duration_plots_md = "\n".join(
+        f"### {p.name.replace('_duration.png', '').replace('level_', 'Level ')}\n\n"
+        f"![{p.name}]({p.name})"
+        for p in sorted(duration_plot_paths)
     )
 
     template_content = TEMPLATE_PATH.read_text()
@@ -216,7 +258,9 @@ def generate_report() -> None:
         rows=rows,
         latest_rows=latest_rows,
         matrix_table=matrix_table,
+        duration_matrix_table=duration_matrix_table,
         level_plots=level_plots_md,
+        duration_plots=duration_plots_md,
     )
 
     OUTPUT_PATH.write_text(report)

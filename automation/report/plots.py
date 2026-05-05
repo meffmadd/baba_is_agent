@@ -7,11 +7,13 @@ Uses matplotlib and seaborn. Install with:
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 REPORT_DIR = Path(__file__).parent
 
@@ -155,5 +157,83 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
 
         saved_paths.append(plot_path)
         print(f"Plot saved: {plot_path}")
+
+    return saved_paths
+
+
+def _duration_seconds(run: dict) -> float:
+    """Calculate task duration in seconds from ISO timestamps."""
+    try:
+        start = run.get("timestamp_start", "")
+        end = run.get("timestamp_end", "")
+        if not start or not end:
+            return 0.0
+        start = start.rstrip("Z")
+        end = end.rstrip("Z")
+        if "." in start:
+            start = start[: start.index(".")]
+        if "." in end:
+            end = end[: end.index(".")]
+        dt_start = datetime.fromisoformat(start)
+        dt_end = datetime.fromisoformat(end)
+        return (dt_end - dt_start).total_seconds()
+    except Exception:
+        return 0.0
+
+
+def generate_duration_bar_charts(runs: list[dict]) -> list[Path]:
+    """Generate individual horizontal bar charts of task duration per model, one per level."""
+    sns.set_theme(style="whitegrid")
+
+    # Group runs by level
+    level_runs: dict[str, list[dict]] = {}
+    for run in runs:
+        level = run.get("level", "unknown")
+        level_runs.setdefault(level, []).append(run)
+
+    levels = sorted(level_runs.keys())
+    if not levels:
+        return []
+
+    status_colors = {
+        "won": "#2ecc71",
+        "not_won": "#e74c3c",
+        "timeout": "#c0392b",
+    }
+
+    saved_paths: list[Path] = []
+
+    for level in levels:
+        fig, ax = plt.subplots(figsize=(8, max(3, len(level_runs[level]) * 0.5 + 1)))
+        runs_for_level = level_runs[level]
+
+        # Pre-compute durations and sort ascending
+        scored = [(_duration_seconds(r), r) for r in runs_for_level]
+        scored.sort(key=lambda x: x[0])
+
+        models = [r.get("model", "Unknown") for _, r in scored]
+        durations = [sec / 60 for sec, _ in scored]  # minutes
+        colors = [status_colors.get(r.get("status", ""), "#95a5a6") for _, r in scored]
+
+        ax.barh(models, durations, color=colors, edgecolor="white", height=0.6)
+        ax.set_title(f"{level.replace('level_', 'Level ')}: Duration per Model")
+        ax.set_xlabel("Duration (min)")
+        ax.invert_yaxis()
+
+        legend_elements = [
+            Patch(facecolor=status_colors["won"], edgecolor="white", label="Won"),
+            Patch(facecolor=status_colors["not_won"], edgecolor="white", label="Not Won"),
+            Patch(facecolor=status_colors["timeout"], edgecolor="white", label="Timeout"),
+        ]
+        ax.legend(handles=legend_elements, loc="lower right")
+
+        plt.tight_layout()
+
+        plot_path = REPORT_DIR / f"{level}_duration.png"
+        plt.savefig(plot_path, dpi=150, bbox_inches="tight")
+        plt.close()
+
+        saved_paths.append(plot_path)
+        print(f"Duration bar chart saved: {plot_path}")
 
     return saved_paths
