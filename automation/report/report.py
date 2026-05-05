@@ -159,13 +159,22 @@ def build_matrix_table(runs: list[dict]) -> str:
         key = (run.get("model", ""), run.get("level", ""))
         status_lookup[key] = run.get("status", "")
 
+    # Compute passed counts and sort models by increasing passed count
+    model_passed_counts = []
+    for model in models:
+        passed_count = sum(
+            1 for level in levels if status_lookup.get((model, level), "") == "won"
+        )
+        model_passed_counts.append((model, passed_count))
+    model_passed_counts.sort(key=lambda x: (x[1], x[0]))
+
     # Build header
-    header = "| Model | " + " | ".join(levels) + " |"
-    separator = "|" + "---|" * (len(levels) + 1)
+    header = "| Model | Passed | " + " | ".join(levels) + " |"
+    separator = "|" + "---|" * (len(levels) + 2)
 
     # Build rows
     rows = []
-    for model in models:
+    for model, passed_count in model_passed_counts:
         cells = []
         for level in levels:
             status = status_lookup.get((model, level), "")
@@ -174,15 +183,16 @@ def build_matrix_table(runs: list[dict]) -> str:
             else:
                 icon = STATUS_ICON.get(status, "❌")
             cells.append(icon)
-        row = f"| {model} | " + " | ".join(cells) + " |"
+        passed_str = f"{passed_count}/{len(levels)}"
+        row = f"| {model} | {passed_str} | " + " | ".join(cells) + " |"
         rows.append(row)
 
-    return "\n".join([header, separator] + rows)
+    return "\n".join([header, separator] + rows), [model for model, _ in model_passed_counts]
 
 
-def build_duration_matrix_table(runs: list[dict]) -> str:
+def build_duration_matrix_table(runs: list[dict], model_order: list[str] | None = None) -> str:
     """Build a markdown matrix table showing execution duration per model/level."""
-    models = sorted({run.get("model", "") for run in runs if run.get("model")})
+    models = model_order or sorted({run.get("model", "") for run in runs if run.get("model")})
     levels = sorted({run.get("level", "") for run in runs if run.get("level")})
 
     if not models or not levels:
@@ -229,10 +239,10 @@ def generate_report() -> None:
     latest_rows = "\n".join(build_table_row(run) for run in latest_runs)
 
     # Build model x level matrix
-    matrix_table = build_matrix_table(latest_runs)
+    matrix_table, model_order = build_matrix_table(latest_runs)
 
-    # Build duration matrix
-    duration_matrix_table = build_duration_matrix_table(latest_runs)
+    # Build duration matrix (same model order)
+    duration_matrix_table = build_duration_matrix_table(latest_runs, model_order)
 
     # Generate per-level progress plots (latest run per model/level only)
     level_plot_paths = generate_level_progress_plots(latest_runs)
