@@ -221,6 +221,40 @@ def build_duration_matrix_table(runs: list[dict], model_order: list[str] | None 
     return "\n".join([header, separator] + rows)
 
 
+def build_cost_matrix_table(runs: list[dict], model_order: list[str] | None = None) -> str:
+    """Build a markdown matrix table showing cost per model/level with a total column."""
+    models = model_order or sorted({run.get("model", "") for run in runs if run.get("model")})
+    levels = sorted({run.get("level", "") for run in runs if run.get("level")})
+
+    if not models or not levels:
+        return "No data available for cost matrix."
+
+    # Build lookup: (model, level) -> cost float
+    cost_lookup = {}
+    for run in runs:
+        key = (run.get("model", ""), run.get("level", ""))
+        try:
+            cost_lookup[key] = float(run.get("cost_total", 0))
+        except (ValueError, TypeError):
+            cost_lookup[key] = 0.0
+
+    header = "| Model | " + " | ".join(levels) + " | Total |"
+    separator = "|" + "---|" * (len(levels) + 2)
+
+    rows = []
+    for model in models:
+        cells = []
+        total = 0.0
+        for level in levels:
+            cost = cost_lookup.get((model, level), 0.0)
+            total += cost
+            cells.append(format_cost(cost))
+        row = f"| {model} | " + " | ".join(cells) + f" | {format_cost(total)} |"
+        rows.append(row)
+
+    return "\n".join([header, separator] + rows)
+
+
 def collect_game_state_format_usage(runs: list[dict]) -> dict[str, dict[str, int]]:
     """Parse trace.jsonl files and count get_game_state calls by format per model."""
     usage: dict[str, dict[str, int]] = {}
@@ -305,6 +339,89 @@ def build_format_usage_table(usage: dict[str, dict[str, int]], model_order: list
     return "\n".join([header, separator] + rows)
 
 
+def collect_tool_usage(runs: list[dict]) -> dict[str, dict[str, int]]:
+    """Parse trace.jsonl files and count tool calls per model per tool."""
+    usage: dict[str, dict[str, int]] = {}
+
+    for run in runs:
+        model = run.get("model", "")
+        run_dir = run.get("_run_dir", "")
+        if not model or not run_dir:
+            continue
+
+        trace_path = Path(run_dir) / "trace.jsonl"
+        if not trace_path.exists():
+            continue
+
+        if model not in usage:
+            usage[model] = {}
+
+        try:
+            with trace_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if entry.get("type") != "tool_use":
+                        continue
+
+                    part = entry.get("part", {})
+                    if part.get("type") != "tool":
+                        continue
+
+                    tool_name = part.get("tool", "unknown")
+                    # Normalize misspelled todowrite variants
+                    if tool_name in ("todowrite", "todowwrite"):
+                        tool_name = "todowrite"
+                    usage[model][tool_name] = usage[model].get(tool_name, 0) + 1
+        except (OSError, json.JSONDecodeError):
+            continue
+
+    return usage
+
+
+def build_tool_usage_matrix(tool_usage: dict[str, dict[str, int]], model_order: list[str] | None = None) -> str:
+    """Build a markdown matrix table with models as rows and tools as columns."""
+    if not tool_usage:
+        return "No data available for tool usage."
+
+    # Collect all tools across all models
+    all_tools = sorted({tool for counts in tool_usage.values() for tool in counts})
+
+    # Sort by model order if provided, else alphabetical
+    models = model_order or sorted(tool_usage.keys())
+
+    if not models or not all_tools:
+        return "No data available for tool usage."
+
+    # Build header
+    header = "| Model | " + " | ".join(all_tools) + " |"
+    separator = "|" + "---|" * (len(all_tools) + 1)
+
+    # Build rows
+    rows = []
+    for model in models:
+        counts = tool_usage.get(model, {})
+        total = sum(counts.values())
+        cells = []
+        for tool in all_tools:
+            count = counts.get(tool, 0)
+            if total == 0:
+                pct = 0
+            else:
+                pct = count / total * 100
+            cells.append(f"{count} ({pct:.0f}%)")
+        row = f"| {model} | " + " | ".join(cells) + " |"
+        rows.append(row)
+
+    return "\n".join([header, separator] + rows)
+
+
 def generate_report() -> None:
     """Generate the markdown report."""
     runs = collect_runs()
@@ -328,9 +445,16 @@ def generate_report() -> None:
     # Build duration matrix (same model order)
     duration_matrix_table = build_duration_matrix_table(latest_runs, model_order)
 
+    # Build cost matrix (same model order)
+    cost_matrix_table = build_cost_matrix_table(latest_runs, model_order)
+
     # Build game state format usage table
     format_usage = collect_game_state_format_usage(runs)
     format_usage_table = build_format_usage_table(format_usage, model_order)
+
+    # Build tool usage matrix
+    tool_usage = collect_tool_usage(runs)
+    tool_usage_matrix = build_tool_usage_matrix(tool_usage, model_order)
 
     # Generate per-level progress plots (latest run per model/level only)
     level_plot_paths = generate_level_progress_plots(latest_runs)
@@ -357,7 +481,9 @@ def generate_report() -> None:
         latest_rows=latest_rows,
         matrix_table=matrix_table,
         duration_matrix_table=duration_matrix_table,
+        cost_matrix_table=cost_matrix_table,
         format_usage_table=format_usage_table,
+        tool_usage_matrix=tool_usage_matrix,
         level_plots=level_plots_md,
         duration_plots=duration_plots_md,
     )
