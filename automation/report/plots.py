@@ -89,7 +89,7 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
     for level in sorted({run["level"] for run in runs}):
         level_runs = [run for run in runs if run["level"] == level]
 
-        fig, ax = plt.subplots(figsize=(10, 7))
+        fig, ax = plt.subplots(figsize=(8, 5))
         parsed_runs: list[tuple[dict, str, list[int], list[int]]] = []
 
         for run in level_runs:
@@ -101,7 +101,7 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
                 ax.plot(
                     tool_calls, tokens,
                     color=model_colors[model],
-                    marker="o", markersize=4, alpha=0.7,
+                    marker="o", markersize=4, alpha=0.7, linewidth=2,
                     label=model,
                 )
 
@@ -157,8 +157,8 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
         model_by_label = dict(zip(model_labels, model_handles))
         if model_by_label:
             n_models = len(model_by_label)
-            n_cols = min(n_models, 4)
-            lg1 = ax.legend(model_by_label.values(), model_by_label.keys(), loc="upper center", bbox_to_anchor=(0.5, -0.10), ncol=n_cols)
+            n_cols = min(n_models, 3)
+            lg1 = ax.legend(model_by_label.values(), model_by_label.keys(), loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=n_cols)
             ax.add_artist(lg1)
 
         # Status glyphs legend in lower right of plot
