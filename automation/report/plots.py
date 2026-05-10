@@ -179,7 +179,7 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
             ax.legend(status_handles, [s for s, _, _ in status_items], title="Status", loc="lower right")
 
         plot_path = REPORT_DIR / f"{level}_progress.png"
-        plt.savefig(plot_path, dpi=150, bbox_inches="tight", bbox_extra_artists=(lg1,) if model_by_label else None)
+        plt.savefig(plot_path, dpi=150, bbox_inches="tight", transparent=True, bbox_extra_artists=(lg1,) if model_by_label else None)
         plt.close()
 
         saved_paths.append(plot_path)
@@ -257,7 +257,7 @@ def generate_duration_bar_charts(runs: list[dict]) -> list[Path]:
         plt.tight_layout()
 
         plot_path = REPORT_DIR / f"{level}_duration.png"
-        plt.savefig(plot_path, dpi=150, bbox_inches="tight")
+        plt.savefig(plot_path, dpi=150, bbox_inches="tight", transparent=True)
         plt.close()
 
         saved_paths.append(plot_path)
@@ -339,7 +339,7 @@ def generate_averaged_tool_calls_plot(runs: list[dict]) -> Path:
     ax.legend(title="Model", bbox_to_anchor=(1.05, 1), loc="upper left")
 
     plot_path = REPORT_DIR / "tool_calls_averaged.png"
-    plt.savefig(plot_path, dpi=150, bbox_inches="tight")
+    plt.savefig(plot_path, dpi=150, bbox_inches="tight", transparent=True)
     plt.close()
 
     print(f"Plot saved: {plot_path}")
