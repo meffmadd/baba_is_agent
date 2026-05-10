@@ -15,9 +15,9 @@ from pathlib import Path
 from string import Template
 
 try:
-    from .plots import generate_averaged_tool_calls_plot, generate_duration_bar_charts, generate_level_progress_plots
+    from .plots import generate_averaged_tool_calls_plot, generate_duration_bar_charts, generate_level_progress_plots, short_model_name
 except ImportError:
-    from plots import generate_averaged_tool_calls_plot, generate_duration_bar_charts, generate_level_progress_plots
+    from plots import generate_averaged_tool_calls_plot, generate_duration_bar_charts, generate_level_progress_plots, short_model_name
 
 
 REPORT_DIR = Path(__file__).parent
@@ -111,7 +111,7 @@ def collect_runs() -> list[dict]:
 
 def build_table_row(run: dict) -> str:
     """Build a single markdown table row from a run dict."""
-    model = run.get("model", "-")
+    model = short_model_name(run.get("model", "-"))
     level = format_level_name(run.get("level", "-"))
     status = run.get("status", "-")
     hash_val = run.get("commit_hash") or run.get("tools_hash", "-")
@@ -190,7 +190,7 @@ def build_matrix_table(runs: list[dict]) -> str:
                 icon = STATUS_ICON.get(status, "❌")
             cells.append(icon)
         passed_str = f"{passed_count}/{len(levels)}"
-        row = f"| {model} | {passed_str} | " + " | ".join(cells) + " |"
+        row = f"| {short_model_name(model)} | {passed_str} | " + " | ".join(cells) + " |"
         rows.append(row)
 
     return "\n".join([header, separator] + rows), [model for model, _ in model_passed_counts]
@@ -222,7 +222,7 @@ def build_duration_matrix_table(runs: list[dict], model_order: list[str] | None 
         for level in levels:
             duration = duration_lookup.get((model, level), "—")
             cells.append(duration)
-        row = f"| {model} | " + " | ".join(cells) + " |"
+        row = f"| {short_model_name(model)} | " + " | ".join(cells) + " |"
         rows.append(row)
 
     return "\n".join([header, separator] + rows)
@@ -257,7 +257,7 @@ def build_cost_matrix_table(runs: list[dict], model_order: list[str] | None = No
             cost = cost_lookup.get((model, level), 0.0)
             total += cost
             cells.append(format_cost(cost))
-        row = f"| {model} | " + " | ".join(cells) + f" | {format_cost(total)} |"
+        row = f"| {short_model_name(model)} | " + " | ".join(cells) + f" | {format_cost(total)} |"
         rows.append(row)
 
     return "\n".join([header, separator] + rows)
@@ -338,7 +338,7 @@ def build_format_usage_table(usage: dict[str, dict[str, int]], model_order: list
             pct_grid = f"{grid / total * 100:.0f}%"
 
         pref = "entities" if entities > grid else "grid" if grid > entities else "tie"
-        row = f"| {model} | {entities} ({pct_entities}) | {grid} ({pct_grid}) | {pref} |"
+        row = f"| {short_model_name(model)} | {entities} ({pct_entities}) | {grid} ({pct_grid}) | {pref} |"
         rows.append(row)
 
     header = "| Model | Entities Calls | Grid Calls | Preferred |"
@@ -424,7 +424,7 @@ def build_tool_usage_matrix(tool_usage: dict[str, dict[str, int]], model_order: 
             else:
                 pct = count / total * 100
             cells.append(f"{count} ({pct:.0f}%)")
-        row = f"| {model} | " + " | ".join(cells) + " |"
+        row = f"| {short_model_name(model)} | " + " | ".join(cells) + " |"
         rows.append(row)
 
     return "\n".join([header, separator] + rows)

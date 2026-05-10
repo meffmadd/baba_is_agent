@@ -20,6 +20,28 @@ from matplotlib.patches import Patch
 REPORT_DIR = Path(__file__).parent
 
 
+MODEL_DISPLAY_NAMES: dict[str, str] = {
+    "opencode-go/deepseek-v4-pro": "DeepSeek V4 Pro",
+    "opencode-go/glm-5.1": "GLM 5.1",
+    "opencode-go/kimi-k2.6": "Kimi K2.6",
+    "opencode-go/minimax-m2.7": "MiniMax M2.7",
+    "opencode-go/qwen3.6-plus": "Qwen 3.6 Plus",
+    "opencode/claude-opus-4-7": "Claude Opus 4.7",
+    "opencode/gemini-3.1-pro": "Gemini 3.1 Pro",
+    "opencode/gpt-5.5": "GPT 5.5",
+}
+
+
+def short_model_name(model: str) -> str:
+    """Map model names to human-readable display names."""
+    if model in MODEL_DISPLAY_NAMES:
+        return MODEL_DISPLAY_NAMES[model]
+    for prefix in ("opencode-go/", "opencode/"):
+        if model.startswith(prefix):
+            return model[len(prefix):].replace("-", " ").title()
+    return model
+
+
 def parse_trace(trace_path: Path) -> tuple[list[int], list[int]]:
     """Parse trace.jsonl and return cumulative tool_calls and tokens per step."""
     tool_calls = []
@@ -60,7 +82,7 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
     sns.set_theme(style="whitegrid")
     saved_paths = []
 
-    models = sorted({run.get("model", "Unknown") for run in runs})
+    models = sorted({short_model_name(run.get("model", "Unknown")) for run in runs})
     palette = sns.color_palette("husl", n_colors=len(models))
     model_colors = dict(zip(models, palette))
 
@@ -71,7 +93,7 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
         parsed_runs: list[tuple[dict, str, list[int], list[int]]] = []
 
         for run in level_runs:
-            model = run.get("model", "Unknown")
+            model = short_model_name(run.get("model", "Unknown"))
             trace_path = Path(run["_run_dir"]) / "trace.jsonl"
             tool_calls, tokens = parse_trace(trace_path)
             parsed_runs.append((run, model, tool_calls, tokens))
@@ -135,7 +157,7 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
         model_by_label = dict(zip(model_labels, model_handles))
         if model_by_label:
             n_models = len(model_by_label)
-            n_cols = min(n_models, 3)
+            n_cols = min(n_models, 4)
             lg1 = ax.legend(model_by_label.values(), model_by_label.keys(), loc="upper center", bbox_to_anchor=(0.5, -0.10), ncol=n_cols)
             ax.add_artist(lg1)
 
@@ -216,7 +238,7 @@ def generate_duration_bar_charts(runs: list[dict]) -> list[Path]:
         scored = [(_duration_seconds(r), r) for r in runs_for_level]
         scored.sort(key=lambda x: x[0])
 
-        models = [r.get("model", "Unknown") for _, r in scored]
+        models = [short_model_name(r.get("model", "Unknown")) for _, r in scored]
         durations = [sec / 60 for sec, _ in scored]  # minutes
         colors = [status_colors.get(r.get("status", ""), "#95a5a6") for _, r in scored]
 
@@ -255,7 +277,7 @@ def generate_averaged_tool_calls_plot(runs: list[dict]) -> Path:
 
     model_runs: dict[str, list[dict]] = {}
     for run in runs:
-        model = run.get("model", "Unknown")
+        model = short_model_name(run.get("model", "Unknown"))
         model_runs.setdefault(model, []).append(run)
 
     if not model_runs:
