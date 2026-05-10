@@ -79,7 +79,7 @@ def parse_trace(trace_path: Path) -> tuple[list[int], list[int]]:
 
 def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
     """Generate per-level progress plots showing cumulative tokens vs tool calls."""
-    sns.set_theme(style="whitegrid")
+    sns.set_theme(style="whitegrid", font_scale=1.15)
     saved_paths = []
 
     models = sorted({short_model_name(run.get("model", "Unknown")) for run in runs})
@@ -210,7 +210,7 @@ def _duration_seconds(run: dict) -> float:
 
 def generate_duration_bar_charts(runs: list[dict]) -> list[Path]:
     """Generate individual horizontal bar charts of task duration per model, one per level."""
-    sns.set_theme(style="whitegrid")
+    sns.set_theme(style="whitegrid", font_scale=1.15)
 
     # Group runs by level
     level_runs: dict[str, list[dict]] = {}
@@ -273,7 +273,7 @@ def generate_averaged_tool_calls_plot(runs: list[dict]) -> Path:
     then mean and std of cumulative tokens are computed at each step.
     X-axis capped at 20 tool calls. Shaded band shows ±1 std.
     """
-    sns.set_theme(style="whitegrid")
+    sns.set_theme(style="whitegrid", font_scale=1.15)
 
     model_runs: dict[str, list[dict]] = {}
     for run in runs:
