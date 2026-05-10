@@ -9,6 +9,8 @@ Uses matplotlib and seaborn. Install with:
 import json
 from datetime import datetime
 from pathlib import Path
+from math import sqrt
+from statistics import mean, stdev
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -65,7 +67,7 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
     for level in sorted({run["level"] for run in runs}):
         level_runs = [run for run in runs if run["level"] == level]
 
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(10, 7))
         parsed_runs: list[tuple[dict, str, list[int], list[int]]] = []
 
         for run in level_runs:
@@ -83,7 +85,7 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
 
         ax.set_xlabel("# Tool Calls")
         ax.set_ylabel("Cumulative Tokens")
-        ax.set_title(f"{level}: Cumulative Tokens vs Tool Calls")
+        ax.set_title(f"{level.replace('level_', 'Level ')}: Cumulative Tokens vs Tool Calls")
 
         # Secondary axis for win/loss glyphs at final positions
         ax2 = ax.twinx()
@@ -128,31 +130,34 @@ def generate_level_progress_plots(runs: list[dict]) -> list[Path]:
                 )
                 has_lost = True
 
-        # Build custom legend combining models and status glyphs
-        handles, labels = ax.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
+        # Model legend below the plot
+        model_handles, model_labels = ax.get_legend_handles_labels()
+        model_by_label = dict(zip(model_labels, model_handles))
+        if model_by_label:
+            n_models = len(model_by_label)
+            n_cols = min(n_models, 3)
+            lg1 = ax.legend(model_by_label.values(), model_by_label.keys(), loc="upper center", bbox_to_anchor=(0.5, -0.10), ncol=n_cols)
+            ax.add_artist(lg1)
 
+        # Status glyphs legend in lower right of plot
+        status_items = []
         if has_won:
-            by_label["Won"] = Line2D(
-                [0], [0], marker="*", color="w", markerfacecolor="gray",
-                markeredgecolor="black", markersize=15, linestyle="None",
-            )
+            status_items.append(("Won", "*", 15))
         if has_lost:
-            by_label["Not Won"] = Line2D(
-                [0], [0], marker="X", color="w", markerfacecolor="gray",
-                markeredgecolor="black", markersize=10, linestyle="None",
-            )
+            status_items.append(("Not Won", "X", 10))
         if has_timeout:
-            by_label["Timeout"] = Line2D(
-                [0], [0], marker="s", color="w", markerfacecolor="gray",
-                markeredgecolor="black", markersize=10, linestyle="None",
-            )
+            status_items.append(("Timeout", "s", 10))
 
-        ax.legend(by_label.values(), by_label.keys(), title="Model / Status", loc="upper left")
-        plt.tight_layout()
+        if status_items:
+            status_handles = [
+                Line2D([0], [0], marker=m, color="w", markerfacecolor="gray",
+                       markeredgecolor="black", markersize=ms, linestyle="None")
+                for _, m, ms in status_items
+            ]
+            ax.legend(status_handles, [s for s, _, _ in status_items], title="Status", loc="lower right")
 
         plot_path = REPORT_DIR / f"{level}_progress.png"
-        plt.savefig(plot_path, dpi=150, bbox_inches="tight")
+        plt.savefig(plot_path, dpi=150, bbox_inches="tight", bbox_extra_artists=(lg1,) if model_by_label else None)
         plt.close()
 
         saved_paths.append(plot_path)
@@ -197,14 +202,14 @@ def generate_duration_bar_charts(runs: list[dict]) -> list[Path]:
 
     status_colors = {
         "won": "#2ecc71",
-        "not_won": "#e74c3c",
+        "not_won": "#f39c12",
         "timeout": "#c0392b",
     }
 
     saved_paths: list[Path] = []
 
     for level in levels:
-        fig, ax = plt.subplots(figsize=(8, max(3, len(level_runs[level]) * 0.5 + 1)))
+        fig, ax = plt.subplots(figsize=(8, max(2.5, len(level_runs[level]) * 0.35 + 1)))
         runs_for_level = level_runs[level]
 
         # Pre-compute durations and sort ascending
@@ -225,7 +230,7 @@ def generate_duration_bar_charts(runs: list[dict]) -> list[Path]:
             Patch(facecolor=status_colors["not_won"], edgecolor="white", label="Not Won"),
             Patch(facecolor=status_colors["timeout"], edgecolor="white", label="Timeout"),
         ]
-        ax.legend(handles=legend_elements, loc="lower right")
+        ax.legend(handles=legend_elements, loc="upper right")
 
         plt.tight_layout()
 
@@ -237,3 +242,83 @@ def generate_duration_bar_charts(runs: list[dict]) -> list[Path]:
         print(f"Duration bar chart saved: {plot_path}")
 
     return saved_paths
+
+
+def generate_averaged_tool_calls_plot(runs: list[dict]) -> Path:
+    """Generate a line chart showing average cumulative tokens vs tool calls per model.
+
+    Traces from all runs of each model are aligned by tool call index,
+    then mean and std of cumulative tokens are computed at each step.
+    X-axis capped at 20 tool calls. Shaded band shows ±1 std.
+    """
+    sns.set_theme(style="whitegrid")
+
+    model_runs: dict[str, list[dict]] = {}
+    for run in runs:
+        model = run.get("model", "Unknown")
+        model_runs.setdefault(model, []).append(run)
+
+    if not model_runs:
+        return REPORT_DIR / "tool_calls_averaged.png"
+
+    models = sorted(model_runs.keys())
+    palette = sns.color_palette("husl", n_colors=len(models))
+    model_colors = dict(zip(models, palette))
+
+    MAX_TOOL_CALLS = 10
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for model in models:
+        traces: list[tuple[list[int], list[int]]] = []
+        for run in model_runs[model]:
+            trace_path = Path(run["_run_dir"]) / "trace.jsonl"
+            if trace_path.exists():
+                tc, tokens = parse_trace(trace_path)
+                if tc:
+                    traces.append((tc, tokens))
+
+        if not traces:
+            continue
+
+        max_len = max(len(tc) for tc, _ in traces)
+        max_len = min(max_len, MAX_TOOL_CALLS + 1)
+
+        means: list[float] = []
+        stds: list[float] = []
+
+        for i in range(max_len):
+            values = [tokens[i] for _tc, tokens in traces if i < len(tokens)]
+            if len(values) >= 2:
+                means.append(mean(values))
+                stds.append(stdev(values) / sqrt(len(values)))
+            elif len(values) == 1:
+                means.append(values[0])
+                stds.append(0)
+            else:
+                break
+
+        x = list(range(len(means)))
+        color = model_colors[model]
+
+        ax.plot(x, means, color=color, linewidth=2, label=model)
+        ax.fill_between(
+            x,
+            [m - s for m, s in zip(means, stds)],
+            [m + s for m, s in zip(means, stds)],
+            color=color, alpha=0.15,
+        )
+
+    ax.set_xlabel("# Tool Calls")
+    ax.set_ylabel("Average Cumulative Tokens")
+    ax.set_title("Average Token Usage")
+    ax.set_xlim(0, MAX_TOOL_CALLS)
+    plt.tight_layout()
+    ax.legend(title="Model", bbox_to_anchor=(1.05, 1), loc="upper left")
+
+    plot_path = REPORT_DIR / "tool_calls_averaged.png"
+    plt.savefig(plot_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+    print(f"Plot saved: {plot_path}")
+    return plot_path

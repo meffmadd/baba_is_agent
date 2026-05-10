@@ -15,15 +15,20 @@ from pathlib import Path
 from string import Template
 
 try:
-    from .plots import generate_duration_bar_charts, generate_level_progress_plots
+    from .plots import generate_averaged_tool_calls_plot, generate_duration_bar_charts, generate_level_progress_plots
 except ImportError:
-    from plots import generate_duration_bar_charts, generate_level_progress_plots
+    from plots import generate_averaged_tool_calls_plot, generate_duration_bar_charts, generate_level_progress_plots
 
 
 REPORT_DIR = Path(__file__).parent
 TEMPLATE_PATH = REPORT_DIR / "template.md"
 OUTPUT_PATH = REPORT_DIR / "report.md"
 RESULTS_DIR = Path(__file__).parent.parent / "results"
+
+
+def format_level_name(level: str) -> str:
+    """Convert 'level_0' to 'Level 0', etc."""
+    return level.replace("level_", "Level ").replace("_", " ").title()
 
 
 def parse_iso_timestamp(ts: str) -> datetime:
@@ -107,7 +112,7 @@ def collect_runs() -> list[dict]:
 def build_table_row(run: dict) -> str:
     """Build a single markdown table row from a run dict."""
     model = run.get("model", "-")
-    level = run.get("level", "-")
+    level = format_level_name(run.get("level", "-"))
     status = run.get("status", "-")
     hash_val = run.get("commit_hash") or run.get("tools_hash", "-")
     start_time = format_timestamp(run.get("timestamp_start", ""))
@@ -169,8 +174,9 @@ def build_matrix_table(runs: list[dict]) -> str:
     model_passed_counts.sort(key=lambda x: (x[1], x[0]))
 
     # Build header
-    header = "| Model | Passed | " + " | ".join(levels) + " |"
-    separator = "|" + "---|" * (len(levels) + 2)
+    display_levels = [format_level_name(l) for l in levels]
+    header = "| Model | Passed | " + " | ".join(display_levels) + " |"
+    separator = "|" + "---|" * (len(display_levels) + 2)
 
     # Build rows
     rows = []
@@ -206,8 +212,9 @@ def build_duration_matrix_table(runs: list[dict], model_order: list[str] | None 
             run.get("timestamp_start", ""), run.get("timestamp_end", "")
         )
 
-    header = "| Model | " + " | ".join(levels) + " |"
-    separator = "|" + "---|" * (len(levels) + 1)
+    display_levels = [format_level_name(l) for l in levels]
+    header = "| Model | " + " | ".join(display_levels) + " |"
+    separator = "|" + "---|" * (len(display_levels) + 1)
 
     rows = []
     for model in models:
@@ -238,8 +245,9 @@ def build_cost_matrix_table(runs: list[dict], model_order: list[str] | None = No
         except (ValueError, TypeError):
             cost_lookup[key] = 0.0
 
-    header = "| Model | " + " | ".join(levels) + " | Total |"
-    separator = "|" + "---|" * (len(levels) + 2)
+    display_levels = [format_level_name(l) for l in levels]
+    header = "| Model | " + " | ".join(display_levels) + " | Total |"
+    separator = "|" + "---|" * (len(display_levels) + 2)
 
     rows = []
     for model in models:
@@ -459,7 +467,7 @@ def generate_report() -> None:
     # Generate per-level progress plots (latest run per model/level only)
     level_plot_paths = generate_level_progress_plots(latest_runs)
     level_plots_md = "\n".join(
-        f"### {p.name.replace('_progress.png', '').replace('level_', 'Level ')}\n\n"
+        f"### {format_level_name(p.name.replace('_progress.png', ''))}\n\n"
         f"![{p.name}]({p.name})"
         for p in sorted(level_plot_paths)
     )
@@ -467,10 +475,14 @@ def generate_report() -> None:
     # Generate duration bar charts (one per level)
     duration_plot_paths = generate_duration_bar_charts(latest_runs)
     duration_plots_md = "\n".join(
-        f"### {p.name.replace('_duration.png', '').replace('level_', 'Level ')}\n\n"
+        f"### {format_level_name(p.name.replace('_duration.png', ''))}\n\n"
         f"![{p.name}]({p.name})"
         for p in sorted(duration_plot_paths)
     )
+
+    # Generate averaged tool calls plot
+    tool_calls_plot_path = generate_averaged_tool_calls_plot(latest_runs)
+    tool_calls_plot_md = f"![{tool_calls_plot_path.name}]({tool_calls_plot_path.name})"
 
     template_content = TEMPLATE_PATH.read_text()
     template = Template(template_content)
@@ -486,6 +498,7 @@ def generate_report() -> None:
         tool_usage_matrix=tool_usage_matrix,
         level_plots=level_plots_md,
         duration_plots=duration_plots_md,
+        tool_calls_plot=tool_calls_plot_md,
     )
 
     OUTPUT_PATH.write_text(report)
